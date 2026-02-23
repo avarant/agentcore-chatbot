@@ -6,6 +6,9 @@
     "build": "pnpm -r build",
     "lint": "pnpm -r lint"
   },
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild", "sharp"]
+  },
   "devDependencies": {
     "@types/node": "^22.13.0",
     "eslint": "^9.20.0",

@@ -5,3 +5,10 @@ dist
 .env*
 .DS_Store
 out/
+
+# Terraform
+terraform/.terraform/
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
+terraform/tfplan
+terraform/*.tfplan

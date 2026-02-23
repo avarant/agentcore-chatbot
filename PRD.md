@@ -1,72 +1,69 @@
 # Agent77 — Product Requirements Document
 
-> Add an AI chatbot to any website, connected to your MCP server.
+> Add an AI chatbot to any website, connected to your MCP server. Self-hosted, open-source.
 
 ---
 
 ## 1. Product Overview
 
-**Agent77** (agent77.app) is a SaaS platform that lets any website owner add an AI chatbot connected to their MCP server. Customers embed a single JS snippet; their logged-in users chat with an agent that calls tools on the customer's MCP server on their behalf.
+**Agent77** is an open-source, self-hosted platform that lets any website owner add an AI chatbot connected to their MCP server. Users deploy the entire stack in their own AWS account using Terraform, then embed a single JS snippet on their site. Logged-in users chat with an agent that calls tools on the owner's MCP server on their behalf.
 
-- **Target customer:** Developers and companies with existing web apps and MCP servers
+- **Target user:** Developers and companies with existing web apps and MCP servers
 - **Key value prop:** One JS snippet, authenticated end-user sessions, user-scoped tool calls
-- **MVP approach:** Cloudflare for frontend/API/data; AWS for AgentCore runtime and Cognito auth
+- **Deployment:** Self-hosted on AWS via Terraform (Lambda, DynamoDB, CloudFront, AgentCore)
 
 ---
 
 ## 2. Architecture
 
 ```
-Cloudflare (frontend, API, data)
-├── Pages (Next.js) — marketing, docs (/docs), dashboard
-├── Workers — API (api.agent77.app)
-├── D1 — customers, mcp_configs, usage_logs
-├── KV — session cache, JWKS cache
-└── R2 — generated snippets, assets
-
-AWS (agent execution + auth)
-├── Cognito — dashboard login (Google, email)
-├── AgentCore Runtime — one per paying customer
-└── Secrets Manager — customer MCP API keys (if needed)
+AWS Account (single deployment)
+├── CloudFront        — Frontend (S3) + API (/api/* → Lambda)
+├── S3                — Static assets (Next.js export, widget JS)
+├── API Gateway       — HTTP API → Lambda proxy
+├── Lambda            — API (Hono, Node.js 20)
+├── DynamoDB          — Configuration table (single-table design)
+├── Cognito           — Dashboard login (Google, email)
+├── AgentCore Runtime — AI agent execution (Claude via Bedrock)
+└── ECR               — Agent container image
 ```
 
-The architecture splits cleanly: Cloudflare handles everything user-facing and data-related (free tier), while AWS handles agent execution (consumption-based, $0 when idle) and dashboard authentication (free under 50k MAU).
+CloudFront serves both the frontend and API on a single domain, so cookies work without cross-origin issues. All resources are provisioned by Terraform.
 
 ---
 
 ## 3. User Flows
 
-### Customer Onboarding
+### Deployment
 
-1. Visit agent77.app — marketing page
-2. Sign up via Cognito (Google or email/password)
-3. Dashboard: enter website domain, MCP server URL, OIDC discovery URL
-4. (Stripe payment skipped in dev, required in prod)
-5. System provisions an AgentCore Runtime with the customer's OIDC config
-6. Customer receives a JS snippet to embed
-7. Customer adds a token endpoint to their app (template provided in /docs)
+1. Clone the repo, configure `terraform.tfvars`
+2. Run `terraform apply` — provisions all AWS resources
+3. Upload frontend build to S3, push agent image to ECR
+4. Log in via Cognito at the dashboard URL
+5. Configure MCP server URL, OIDC discovery URL, and allowed audiences
+6. Copy the JS snippet and embed it on the target website
+7. Add a token endpoint to the website (template provided in /docs)
 
 ### End-User Chat Flow
 
-1. End user visits the customer's site (already logged in to the customer's app)
+1. End user visits the site (already logged in to the site's app)
 2. JS snippet loads and renders a chat button (shadow DOM, white-label)
 3. User clicks chat and types a message
-4. Snippet calls the customer's `/api/chatbot-token/` endpoint (session cookie → JWT)
+4. Snippet calls the site's `/api/chatbot-token/` endpoint (session cookie → JWT)
 5. Snippet sends the message + JWT directly to the AgentCore Runtime
 6. AgentCore validates the JWT; the agent executes
-7. Agent forwards the JWT to the customer's MCP server and calls tools
+7. Agent forwards the JWT to the MCP server and calls tools
 8. Streamed response is returned to the user
 
 ---
 
-## 4. Frontend — Next.js on Cloudflare Pages
+## 4. Frontend — Next.js
 
 ### Marketing Site (SSG)
 
 | Route | Description |
 |-------|-------------|
-| `/` | Landing page (hero, features, pricing, CTA) |
-| `/pricing` | Plan details |
+| `/` | Landing page (hero, features, quick start, CTA) |
 | `/docs` | Embedded MDX documentation |
 
 ### Docs (`/docs`, MDX)
@@ -78,103 +75,59 @@ The architecture splits cleanly: Cloudflare handles everything user-facing and d
 - JS snippet customization
 - API reference
 
-### Dashboard (auth-gated)
+### Dashboard (auth-gated, single page)
 
 | Route | Description |
 |-------|-------------|
-| `/dashboard` | Overview (status, usage stats) |
-| `/dashboard/setup` | Wizard: domain, MCP URL, OIDC URL |
-| `/dashboard/snippet` | Generated snippet + copy button |
-| `/dashboard/settings` | Update config, manage subscription |
-| `/dashboard/usage` | Message count, basic analytics |
+| `/dashboard` | Status, configuration form, snippet, danger zone |
 
 ### Auth Flow
 
 - Cognito hosted UI for login (Google + email/password)
-- JWT stored in httpOnly cookie or localStorage
-- Workers API validates Cognito JWT on every request
+- JWT stored in httpOnly cookie
+- Lambda API validates Cognito JWT on every request
 
 ---
 
-## 5. Backend — Cloudflare Workers API
+## 5. Backend — Lambda API (Hono)
 
-### Endpoints (`api.agent77.app`)
+### Endpoints
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/api/auth/callback` | Cognito OAuth callback |
+| GET | `/api/auth/callback` | Cognito OAuth callback |
 | GET | `/api/auth/me` | Get current user from JWT |
-| POST | `/api/customers` | Create customer record |
-| GET | `/api/customers/:id` | Get customer config |
-| PUT | `/api/customers/:id` | Update MCP URL, OIDC URL, settings |
-| DELETE | `/api/customers/:id` | Teardown customer + Runtime |
-| POST | `/api/customers/:id/provision` | Trigger AgentCore Runtime creation |
-| GET | `/api/customers/:id/snippet` | Get generated JS snippet |
-| POST | `/api/stripe/webhook` | Handle Stripe payment events (prod) |
-| GET | `/api/usage/:id` | Get usage stats |
+| GET | `/api/customers/me` | Get configuration |
+| PUT | `/api/customers/me` | Update MCP URL, OIDC URL, settings |
+| DELETE | `/api/customers/me` | Delete configuration |
+| GET | `/api/customers/snippet` | Get generated JS snippet |
 
-### D1 Schema
+### DynamoDB Schema (Single Table)
 
-```sql
-CREATE TABLE customers (
-  id TEXT PRIMARY KEY,
-  user_id TEXT NOT NULL,          -- Cognito sub
-  email TEXT NOT NULL,
-  domain TEXT,
-  plan TEXT DEFAULT 'free',
-  status TEXT DEFAULT 'pending',  -- pending, active, suspended
-  created_at TEXT DEFAULT (datetime('now'))
-);
-
-CREATE TABLE mcp_configs (
-  id TEXT PRIMARY KEY,
-  customer_id TEXT NOT NULL REFERENCES customers(id),
-  mcp_url TEXT NOT NULL,
-  oidc_discovery_url TEXT NOT NULL,
-  allowed_audiences TEXT,         -- JSON array
-  runtime_arn TEXT,               -- set after provisioning
-  auth_method TEXT DEFAULT 'jwt', -- jwt or api_key
-  created_at TEXT DEFAULT (datetime('now'))
-);
-
-CREATE TABLE usage_logs (
-  id TEXT PRIMARY KEY,
-  customer_id TEXT NOT NULL REFERENCES customers(id),
-  month TEXT NOT NULL,            -- "2026-02"
-  message_count INTEGER DEFAULT 0,
-  UNIQUE(customer_id, month)
-);
-```
+| PK | SK | Attributes |
+|----|-----|------------|
+| `CUSTOMER` | `PROFILE` | id, user_id, email, domain, status, created_at |
+| `CUSTOMER` | `MCP_CONFIG` | id, mcp_url, oidc_discovery_url, allowed_audiences, created_at |
 
 ---
 
 ## 6. AgentCore Provisioning
 
-Triggered from the Cloudflare Worker using the AWS SDK with stored credentials.
+Provisioned by Terraform using AWS CLI `local-exec`.
 
-### Provisioning Steps
+### Configuration
 
-1. Call `CreateAgentRuntime` with the customer's OIDC config:
-   ```json
-   {
-     "customJWTAuthorizer": {
-       "discoveryUrl": "<customer's OIDC URL>",
-       "allowedAudience": ["chatbot"],
-       "allowedScopes": ["chatbot:read"]
-     }
-   }
-   ```
-2. Deploy the shared agent code image (parameterized by env vars per customer)
-3. Store the returned `runtime_arn` in D1
-4. Generate the JS snippet with the runtime endpoint baked in
+- AgentCore Runtime created with the OIDC config from Terraform variables
+- Shared agent code image deployed from ECR
+- Runtime URL passed to Lambda as an environment variable
 
 ### Shared Agent Code
 
-A single agent codebase is deployed once and shared across all customers. Per-customer behavior is driven by runtime config:
+A single agent codebase deployed as a container:
 
 - Reads `MCP_URL` from runtime config
 - Decodes JWT claims to identify the end user
-- Connects to the customer's MCP server via an MCP client, forwarding the JWT
+- Connects to the MCP server via an MCP client, forwarding the JWT
 - Uses Claude via Amazon Bedrock as the LLM
 - Streams the response back to the caller
 
@@ -186,17 +139,17 @@ The snippet is self-contained and designed for zero-friction embedding.
 
 - **Isolation:** Shadow DOM for full style isolation
 - **Branding:** White-label (no Agent77 branding visible)
-- **Auth:** Auto-fetches JWT from the customer's token endpoint; auto-refreshes before expiry; handles 401 retry
+- **Auth:** Auto-fetches JWT from the site's token endpoint; auto-refreshes before expiry; handles 401 retry
 - **Streaming:** Streams responses from AgentCore in real time
-- **Delivery:** Served from R2 or Cloudflare CDN
+- **Delivery:** Served from the same S3/CloudFront as the frontend
 
 ### Embed Example
 
 ```html
 <script
-  src="https://cdn.agent77.app/chatbot.js"
+  src="https://your-cloudfront-domain/widget.js"
   data-token-url="/api/chatbot-token/"
-  data-runtime-url="https://bedrock-agentcore.us-east-1.amazonaws.com/runtimes/ARN/invocations?qualifier=DEFAULT"
+  data-runtime-url="https://bedrock-agentcore.us-east-1.amazonaws.com/runtimes/RUNTIME_ID/invocations?qualifier=DEFAULT"
 ></script>
 ```
 
@@ -210,100 +163,86 @@ Configuration is passed via `data-` attributes — no JavaScript initialization 
 
 - Cognito User Pool with Google + email/password providers
 - Hosted UI for sign-in/sign-up
-- JWT validated by the Workers API on every request
+- JWT validated by the Lambda API on every request
 
-### End-User Chat Auth (Customer's IdP)
+### End-User Chat Auth (Site Owner's IdP)
 
-- Customer provides their OIDC discovery URL and JWKS endpoint
-- Customer implements a token endpoint in their app (session cookie → signed JWT)
-- AgentCore validates the JWT on every request using the customer's JWKS
-- The agent forwards the JWT to the customer's MCP server, enabling user-scoped tool calls
+- Site owner provides their OIDC discovery URL and JWKS endpoint
+- Site owner implements a token endpoint in their app (session cookie → signed JWT)
+- AgentCore validates the JWT on every request using the owner's JWKS
+- The agent forwards the JWT to the MCP server, enabling user-scoped tool calls
 
-This two-layer auth model keeps Agent77's auth (Cognito) completely separate from end-user auth (customer-managed).
-
----
-
-## 9. Billing (Stripe)
-
-- **Dev/MVP:** Payment is skipped; all customers get full access
-- **Prod:** Stripe Checkout for subscription-based billing
-- Stripe webhook → Worker updates customer `status` and `plan` in D1
-- **Plan tiers (to be defined):** Free (limited), Pro, Enterprise
+This two-layer auth model keeps Agent77's auth (Cognito) completely separate from end-user auth (site owner-managed).
 
 ---
 
-## 10. Infrastructure & Cost
+## 9. Infrastructure (Terraform)
 
-### Cloudflare (free tier)
+All resources are provisioned in the deployer's AWS account via Terraform.
 
-| Resource | Free Limit |
-|----------|-----------|
-| Workers | 100k requests/day |
-| D1 | 5M rows read/day, 100k writes/day |
-| KV | 100k reads/day |
-| R2 | 10GB storage, 10M reads/mo |
-| Pages | Unlimited sites, 500 builds/mo |
+| Resource | Purpose |
+|----------|---------|
+| CloudFront | CDN + unified domain for frontend and API |
+| S3 | Static frontend assets + widget JS |
+| API Gateway (HTTP) | Routes /api/* to Lambda |
+| Lambda (Node.js 20) | API server (Hono framework) |
+| DynamoDB | Configuration storage |
+| Cognito | Dashboard authentication |
+| AgentCore Runtime | AI agent execution |
+| ECR | Agent container image registry |
 
-### AWS (free / consumption-based)
+### Cost at idle: ~$0
 
-| Resource | Cost |
-|----------|------|
-| Cognito | Free under 50k MAU |
-| AgentCore | Consumption-based, $0 when idle |
-| Secrets Manager | $0.40/secret/month (only if using API keys) |
-
-**Total cost at idle: $0**
+- Cognito: Free under 50k MAU
+- AgentCore: Consumption-based, $0 when idle
+- Lambda: Free tier covers 1M requests/month
+- DynamoDB: Free tier covers 25GB + 25 RCU/WCU
+- S3 + CloudFront: Minimal for low traffic
 
 ---
 
-## 11. MVP Scope
+## 10. Scope
 
 ### In Scope
 
-- Marketing site with pricing page
+- Landing page with deployment instructions
 - Cognito sign-up/login (Google + email)
-- Dashboard: setup wizard, snippet generation, basic usage stats
-- AgentCore provisioning (one Runtime per customer)
+- Single-page dashboard: status, configuration, snippet, delete
+- Terraform for all AWS resources
 - JS snippet (shadow DOM, white-label, streaming)
 - Embedded docs with setup guides
 - Claude via Bedrock as LLM
-- JWT auth flow (customer provides OIDC endpoints)
+- JWT auth flow (site owner provides OIDC endpoints)
 - Direct AgentCore connection (no proxy)
 
-### Out of Scope (Post-MVP)
+### Future
 
-- Stripe billing (skipped in dev)
-- Usage-based metering / plan limits
-- Proxy layer for analytics
 - Multiple LLM options
-- Custom agent instructions per customer
+- Custom agent instructions
 - Conversation history / memory
 - Analytics dashboard
-- Team accounts / multi-user
 - Widget theming / customization UI
 
 ---
 
-## 12. Tech Stack Summary
+## 11. Tech Stack Summary
 
 | Layer | Technology |
 |-------|-----------|
-| Frontend | Next.js (SSG + SPA), deployed to Cloudflare Pages |
+| Frontend | Next.js (SSG + SPA), deployed to S3 + CloudFront |
 | Docs | MDX pages within Next.js at `/docs` |
-| API | Cloudflare Workers (Hono or itty-router) |
-| Database | Cloudflare D1 (SQLite) |
-| Cache | Cloudflare KV |
-| Storage | Cloudflare R2 |
+| API | AWS Lambda (Hono on Node.js 20) |
+| Database | DynamoDB (single-table design) |
 | Auth (dashboard) | Amazon Cognito |
-| Auth (end-user chat) | Customer's IdP (OIDC + JWT) |
+| Auth (end-user chat) | Site owner's IdP (OIDC + JWT) |
 | Agent hosting | AWS AgentCore Runtime |
 | LLM | Claude via Amazon Bedrock |
-| Payments | Stripe (prod only) |
-| DNS/CDN | Cloudflare |
+| Infrastructure | Terraform |
+| CDN | CloudFront |
 
 ---
 
-## 13. File Structure
+## 12. File Structure
 
 ```
 agent77/
@@ -312,35 +251,31 @@ agent77/
 │   │   ├── src/
 │   │   │   ├── app/
 │   │   │   │   ├── page.tsx              # landing page
-│   │   │   │   ├── pricing/page.tsx
+│   │   │   │   ├── login/page.tsx
 │   │   │   │   ├── docs/                 # MDX docs
+│   │   │   │   ├── components/
+│   │   │   │   │   ├── Header.tsx
+│   │   │   │   │   └── Footer.tsx
 │   │   │   │   └── dashboard/
-│   │   │   │       ├── page.tsx          # overview
-│   │   │   │       ├── setup/page.tsx    # wizard
-│   │   │   │       ├── snippet/page.tsx
-│   │   │   │       ├── settings/page.tsx
-│   │   │   │       └── usage/page.tsx
-│   │   │   ├── components/
+│   │   │   │       ├── layout.tsx
+│   │   │   │       ├── page.tsx          # single-page dashboard
+│   │   │   │       └── customer-context.tsx
 │   │   │   └── lib/
 │   │   ├── next.config.mjs
 │   │   └── package.json
 │   │
-│   └── api/                    # Cloudflare Workers API
+│   └── api/                    # Lambda API
 │       ├── src/
-│       │   ├── index.ts        # router
+│       │   ├── index.ts        # router + Lambda handler
+│       │   ├── types.ts        # env types
 │       │   ├── routes/
 │       │   │   ├── auth.ts
-│       │   │   ├── customers.ts
-│       │   │   ├── provision.ts
-│       │   │   ├── snippet.ts
-│       │   │   └── stripe.ts
+│       │   │   └── customers.ts
 │       │   ├── db/
-│       │   │   ├── schema.sql
-│       │   │   └── queries.ts
+│       │   │   └── queries.ts  # DynamoDB operations
 │       │   └── lib/
-│       │       ├── agentcore.ts   # AWS SDK calls
-│       │       └── auth.ts        # Cognito JWT validation
-│       ├── wrangler.toml
+│       │       ├── agentcore.ts
+│       │       └── auth.ts
 │       └── package.json
 │
 ├── packages/
@@ -348,14 +283,26 @@ agent77/
 │       ├── src/
 │       │   └── chatbot.ts
 │       ├── dist/
-│       │   └── chatbot.js      # built, served from CDN
+│       │   └── chatbot.js
 │       └── package.json
 │
 ├── agent/                      # AgentCore agent code
-│   ├── agent.py                # main agent logic
+│   ├── agent.py
 │   ├── requirements.txt
 │   └── Dockerfile
 │
-├── PRD.md
-└── package.json                # workspace root
+├── terraform/                  # Infrastructure as code
+│   ├── main.tf
+│   ├── variables.tf
+│   ├── outputs.tf
+│   ├── cognito.tf
+│   ├── lambda.tf
+│   ├── dynamodb.tf
+│   ├── s3_cloudfront.tf
+│   ├── ecr.tf
+│   ├── agentcore.tf
+│   └── terraform.tfvars.example
+│
+├── README.md
+└── PRD.md
 ```

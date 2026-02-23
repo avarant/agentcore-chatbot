@@ -12,8 +12,8 @@ export default function Header() {
           <Link href="/#features" className="text-sm font-medium text-gray-600 hover:text-gray-900">
             Features
           </Link>
-          <Link href="/pricing" className="text-sm font-medium text-gray-600 hover:text-gray-900">
-            Pricing
+          <Link href="#" className="text-sm font-medium text-gray-600 hover:text-gray-900">
+            GitHub
           </Link>
           <Link href="/docs" className="text-sm font-medium text-gray-600 hover:text-gray-900">
             Docs

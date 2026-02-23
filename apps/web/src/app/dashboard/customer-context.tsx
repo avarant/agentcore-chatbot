@@ -7,7 +7,6 @@ export type Customer = {
   user_id: string;
   email: string;
   domain: string | null;
-  plan: string;
   status: string;
   created_at: string;
 };

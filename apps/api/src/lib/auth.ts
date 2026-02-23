@@ -24,7 +24,9 @@ interface Jwks {
   keys: JwksKey[];
 }
 
-const JWKS_CACHE_TTL = 3600; // 1 hour
+// In-memory JWKS cache (survives Lambda container reuse)
+const jwksCache = new Map<string, { jwks: Jwks; expiresAt: number }>();
+const JWKS_CACHE_TTL = 3600 * 1000; // 1 hour in ms
 
 function base64UrlDecode(str: string): Uint8Array {
   const base64 = str.replace(/-/g, "+").replace(/_/g, "/");
@@ -38,23 +40,19 @@ function base64UrlDecode(str: string): Uint8Array {
   return bytes;
 }
 
-async function fetchJwks(
-  region: string,
-  userPoolId: string,
-  cache: KVNamespace
-): Promise<Jwks> {
+async function fetchJwks(region: string, userPoolId: string): Promise<Jwks> {
   const cacheKey = `jwks:${userPoolId}`;
-  const cached = await cache.get(cacheKey, "json");
-  if (cached) return cached as Jwks;
+  const cached = jwksCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.jwks;
+  }
 
   const url = `https://cognito-idp.${region}.amazonaws.com/${userPoolId}/.well-known/jwks.json`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Failed to fetch JWKS: ${res.status}`);
 
   const jwks = (await res.json()) as Jwks;
-  await cache.put(cacheKey, JSON.stringify(jwks), {
-    expirationTtl: JWKS_CACHE_TTL,
-  });
+  jwksCache.set(cacheKey, { jwks, expiresAt: Date.now() + JWKS_CACHE_TTL });
   return jwks;
 }
 
@@ -70,8 +68,7 @@ async function importJwk(key: JwksKey): Promise<CryptoKey> {
 
 export async function validateJwt(
   token: string,
-  config: { userPoolId: string; region: string; clientId: string },
-  cache: KVNamespace
+  config: { userPoolId: string; region: string; clientId: string }
 ): Promise<JwtPayload | null> {
   const parts = token.split(".");
   if (parts.length !== 3) return null;
@@ -94,7 +91,7 @@ export async function validateJwt(
   if (payload.exp < Math.floor(Date.now() / 1000)) return null;
 
   // Fetch JWKS and find matching key
-  const jwks = await fetchJwks(config.region, config.userPoolId, cache);
+  const jwks = await fetchJwks(config.region, config.userPoolId);
   const jwk = jwks.keys.find((k) => k.kid === header.kid);
   if (!jwk) return null;
 
@@ -134,15 +131,11 @@ export const authMiddleware = createMiddleware<Env>(async (c, next) => {
     return c.json({ error: "Unauthorized" }, 401);
   }
 
-  const payload = await validateJwt(
-    token,
-    {
-      userPoolId: c.env.COGNITO_USER_POOL_ID,
-      region: c.env.COGNITO_REGION,
-      clientId: c.env.COGNITO_CLIENT_ID,
-    },
-    c.env.CACHE
-  );
+  const payload = await validateJwt(token, {
+    userPoolId: process.env.COGNITO_USER_POOL_ID!,
+    region: process.env.COGNITO_REGION!,
+    clientId: process.env.COGNITO_CLIENT_ID!,
+  });
 
   if (!payload) {
     return c.json({ error: "Invalid token" }, 401);

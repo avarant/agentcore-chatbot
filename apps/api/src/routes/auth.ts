@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import type { Env } from "../types";
 import { validateJwt } from "../lib/auth";
-import { getCustomerByUserId, createCustomer } from "../db/queries";
+import { getCustomer, createCustomer } from "../db/queries";
 
 export const authRoutes = new Hono<Env>();
 
@@ -12,14 +12,19 @@ authRoutes.get("/callback", async (c) => {
     return c.json({ error: "Missing authorization code" }, 400);
   }
 
+  const cognitoDomain = process.env.COGNITO_DOMAIN!;
+  const clientId = process.env.COGNITO_CLIENT_ID!;
+  const clientSecret = process.env.COGNITO_CLIENT_SECRET!;
+  const redirectUri = process.env.COGNITO_REDIRECT_URI!;
+
   // Exchange auth code for tokens with Cognito
-  const tokenUrl = `https://${c.env.COGNITO_DOMAIN}/oauth2/token`;
+  const tokenUrl = `https://${cognitoDomain}/oauth2/token`;
   const params = new URLSearchParams({
     grant_type: "authorization_code",
-    client_id: c.env.COGNITO_CLIENT_ID,
-    client_secret: c.env.COGNITO_CLIENT_SECRET,
+    client_id: clientId,
+    client_secret: clientSecret,
     code,
-    redirect_uri: c.env.COGNITO_REDIRECT_URI,
+    redirect_uri: redirectUri,
   });
 
   const tokenRes = await fetch(tokenUrl, {
@@ -41,24 +46,20 @@ authRoutes.get("/callback", async (c) => {
   };
 
   // Validate the ID token
-  const payload = await validateJwt(
-    tokens.id_token,
-    {
-      userPoolId: c.env.COGNITO_USER_POOL_ID,
-      region: c.env.COGNITO_REGION,
-      clientId: c.env.COGNITO_CLIENT_ID,
-    },
-    c.env.CACHE
-  );
+  const payload = await validateJwt(tokens.id_token, {
+    userPoolId: process.env.COGNITO_USER_POOL_ID!,
+    region: process.env.COGNITO_REGION!,
+    clientId,
+  });
 
   if (!payload) {
     return c.json({ error: "Invalid ID token" }, 401);
   }
 
-  // Create or update customer in D1
-  const existing = await getCustomerByUserId(c.env.DB, payload.sub);
+  // Create customer record if it doesn't exist
+  const existing = await getCustomer();
   if (!existing) {
-    await createCustomer(c.env.DB, {
+    await createCustomer({
       id: crypto.randomUUID(),
       user_id: payload.sub,
       email: payload.email,
@@ -67,13 +68,13 @@ authRoutes.get("/callback", async (c) => {
 
   // Set JWT cookie and redirect to dashboard
   const maxAge = tokens.expires_in || 3600;
-  const dashboardUrl = c.env.DASHBOARD_URL || "https://agent77.app/dashboard";
+  const dashboardUrl = process.env.DASHBOARD_URL || "/dashboard";
 
   return new Response(null, {
     status: 302,
     headers: {
       Location: dashboardUrl,
-      "Set-Cookie": `token=${tokens.id_token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAge}; Domain=.agent77.app`,
+      "Set-Cookie": `token=${tokens.id_token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAge}`,
     },
   });
 });
@@ -98,21 +99,17 @@ authRoutes.get("/me", async (c) => {
     return c.json({ error: "Unauthorized" }, 401);
   }
 
-  const payload = await validateJwt(
-    token,
-    {
-      userPoolId: c.env.COGNITO_USER_POOL_ID,
-      region: c.env.COGNITO_REGION,
-      clientId: c.env.COGNITO_CLIENT_ID,
-    },
-    c.env.CACHE
-  );
+  const payload = await validateJwt(token, {
+    userPoolId: process.env.COGNITO_USER_POOL_ID!,
+    region: process.env.COGNITO_REGION!,
+    clientId: process.env.COGNITO_CLIENT_ID!,
+  });
 
   if (!payload) {
     return c.json({ error: "Invalid token" }, 401);
   }
 
-  const customer = await getCustomerByUserId(c.env.DB, payload.sub);
+  const customer = await getCustomer();
 
   return c.json({
     user: {

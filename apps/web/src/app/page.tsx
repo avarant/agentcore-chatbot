@@ -3,9 +3,9 @@ import Link from "next/link";
 const steps = [
   {
     number: "1",
-    title: "Add your MCP server",
+    title: "Clone & configure",
     description:
-      "Point Agent77 at your MCP-compatible server. We handle the connection, auth, and tool routing.",
+      "Clone the repo into your own AWS account. Set your MCP server URL, OIDC provider, and domain in the config.",
   },
   {
     number: "2",
@@ -66,15 +66,16 @@ export default function HomePage() {
             <span className="text-blue-600">to any website</span>
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg text-gray-500 md:text-xl">
-            Connect your MCP server, embed one script tag, and give every
-            visitor a smart, authenticated AI assistant — in minutes.
+            Self-hosted, open-source AI chat infrastructure. Deploy in your own
+            AWS account, connect your MCP server, and give every visitor an
+            authenticated AI assistant.
           </p>
           <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
             <Link
-              href="/login"
+              href="#"
               className="rounded-lg bg-blue-600 px-8 py-3.5 text-base font-semibold text-white shadow-sm hover:bg-blue-700"
             >
-              Get Started
+              Deploy Now
             </Link>
             <Link
               href="/docs"
@@ -138,21 +139,24 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Pricing preview */}
+      {/* Quick Start */}
       <section className="bg-gray-50 px-6 py-24">
-        <div className="mx-auto max-w-3xl text-center">
-          <h2 className="text-3xl font-bold tracking-tight text-gray-900 md:text-4xl">
-            Simple, transparent pricing
+        <div className="mx-auto max-w-3xl">
+          <h2 className="text-center text-3xl font-bold tracking-tight text-gray-900 md:text-4xl">
+            Quick Start
           </h2>
-          <p className="mt-4 text-gray-500">
-            Start free. Upgrade when you need more.
+          <p className="mt-4 text-center text-gray-500">
+            Go from zero to deployed in three commands.
           </p>
-          <Link
-            href="/pricing"
-            className="mt-8 inline-block rounded-lg border border-gray-200 px-6 py-3 text-sm font-semibold text-gray-700 hover:border-gray-300 hover:bg-white"
-          >
-            View pricing
-          </Link>
+          <div className="mt-10 overflow-x-auto rounded-lg bg-gray-900 p-6 font-mono text-sm leading-relaxed text-gray-100">
+            <p className="text-gray-400"># Clone the repository</p>
+            <p>git clone https://github.com/agent77-org/agent77.git</p>
+            <p className="mt-4 text-gray-400"># Configure and deploy</p>
+            <p>cd agent77/terraform</p>
+            <p>cp terraform.tfvars.example terraform.tfvars</p>
+            <p className="mt-4 text-gray-400"># Deploy to your AWS account</p>
+            <p>terraform init && terraform apply</p>
+          </div>
         </div>
       </section>
 
@@ -160,16 +164,16 @@ export default function HomePage() {
       <section className="px-6 py-24">
         <div className="mx-auto max-w-3xl text-center">
           <h2 className="text-3xl font-bold tracking-tight text-gray-900 md:text-4xl">
-            Ready to add AI to your site?
+            Deploy in your AWS account
           </h2>
           <p className="mt-4 text-gray-500">
-            Set up in under five minutes. No credit card required.
+            Own your infrastructure. Keep your data. Ship AI chat in minutes.
           </p>
           <Link
-            href="/login"
+            href="#"
             className="mt-8 inline-block rounded-lg bg-blue-600 px-8 py-3.5 text-base font-semibold text-white shadow-sm hover:bg-blue-700"
           >
-            Get Started
+            Deploy Now
           </Link>
         </div>
       </section>

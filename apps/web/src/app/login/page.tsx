@@ -2,13 +2,13 @@
 
 import { useEffect } from "react";
 
-const COGNITO_DOMAIN = "agent77.auth.us-east-1.amazoncognito.com";
-const CLIENT_ID = "723jk7bq2m4686e4opr6i4q7pl";
-const REDIRECT_URI = encodeURIComponent("https://api.agent77.app/api/auth/callback");
+const COGNITO_DOMAIN = process.env.NEXT_PUBLIC_COGNITO_DOMAIN || "";
+const CLIENT_ID = process.env.NEXT_PUBLIC_COGNITO_CLIENT_ID || "";
+const REDIRECT_URI = encodeURIComponent(process.env.NEXT_PUBLIC_AUTH_CALLBACK_URL || "");
 const SCOPES = encodeURIComponent("openid email profile");
 
-const LOGIN_URL = `https://${COGNITO_DOMAIN}/login?response_type=code&client_id=${CLIENT_ID}&redirect_uri=${REDIRECT_URI}&scope=${SCOPES}`;
-const SIGNUP_URL = `https://${COGNITO_DOMAIN}/signup?response_type=code&client_id=${CLIENT_ID}&redirect_uri=${REDIRECT_URI}&scope=${SCOPES}`;
+const LOGIN_URL = `${COGNITO_DOMAIN}/login?response_type=code&client_id=${CLIENT_ID}&redirect_uri=${REDIRECT_URI}&scope=${SCOPES}`;
+const SIGNUP_URL = `${COGNITO_DOMAIN}/signup?response_type=code&client_id=${CLIENT_ID}&redirect_uri=${REDIRECT_URI}&scope=${SCOPES}`;
 
 export default function LoginPage() {
   return (
