@@ -1,0 +1,4 @@
+mcp
+boto3
+pyjwt
+anthropic

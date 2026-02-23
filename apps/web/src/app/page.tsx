@@ -1,0 +1,178 @@
+import Link from "next/link";
+
+const steps = [
+  {
+    number: "1",
+    title: "Add your MCP server",
+    description:
+      "Point Agent77 at your MCP-compatible server. We handle the connection, auth, and tool routing.",
+  },
+  {
+    number: "2",
+    title: "Embed one line of code",
+    description:
+      "Drop a single script tag into your site. The chat widget renders inside a Shadow DOM — zero style conflicts.",
+  },
+  {
+    number: "3",
+    title: "Your users chat with AI",
+    description:
+      "Visitors get a conversational AI that can call your tools, scoped to their permissions and session.",
+  },
+];
+
+const features = [
+  {
+    title: "Authenticated (JWT)",
+    description:
+      "Every chat session is tied to a signed JWT. Your backend always knows who is talking.",
+  },
+  {
+    title: "User-scoped tool calls",
+    description:
+      "MCP tool invocations carry the end-user context so your server can enforce per-user access control.",
+  },
+  {
+    title: "White-label",
+    description:
+      "Customize colors, position, welcome message, and avatar to match your brand perfectly.",
+  },
+  {
+    title: "Streaming responses",
+    description:
+      "Answers stream token-by-token for a fast, responsive experience your users will love.",
+  },
+  {
+    title: "Any MCP server",
+    description:
+      "Works with any server that speaks the Model Context Protocol — bring your own tools.",
+  },
+  {
+    title: "Shadow DOM isolation",
+    description:
+      "The widget is fully encapsulated. Your page styles stay untouched, and vice versa.",
+  },
+];
+
+export default function HomePage() {
+  return (
+    <main>
+      {/* Hero */}
+      <section className="px-6 pb-24 pt-20 md:pb-32 md:pt-28">
+        <div className="mx-auto max-w-4xl text-center">
+          <h1 className="text-5xl font-extrabold leading-tight tracking-tight text-gray-900 md:text-6xl lg:text-7xl">
+            Add an AI chatbot
+            <br />
+            <span className="text-blue-600">to any website</span>
+          </h1>
+          <p className="mx-auto mt-6 max-w-2xl text-lg text-gray-500 md:text-xl">
+            Connect your MCP server, embed one script tag, and give every
+            visitor a smart, authenticated AI assistant — in minutes.
+          </p>
+          <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
+            <Link
+              href="/login"
+              className="rounded-lg bg-blue-600 px-8 py-3.5 text-base font-semibold text-white shadow-sm hover:bg-blue-700"
+            >
+              Get Started
+            </Link>
+            <Link
+              href="/docs"
+              className="rounded-lg border border-gray-200 px-8 py-3.5 text-base font-semibold text-gray-700 hover:border-gray-300 hover:bg-gray-50"
+            >
+              Read the Docs
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* How it works */}
+      <section className="bg-gray-50 px-6 py-24">
+        <div className="mx-auto max-w-5xl">
+          <h2 className="text-center text-3xl font-bold tracking-tight text-gray-900 md:text-4xl">
+            How it works
+          </h2>
+          <div className="mt-16 grid gap-12 md:grid-cols-3">
+            {steps.map((step) => (
+              <div key={step.number} className="text-center">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-blue-600 text-lg font-bold text-white">
+                  {step.number}
+                </div>
+                <h3 className="mt-6 text-lg font-semibold text-gray-900">
+                  {step.title}
+                </h3>
+                <p className="mt-3 text-sm leading-relaxed text-gray-500">
+                  {step.description}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Features */}
+      <section id="features" className="px-6 py-24">
+        <div className="mx-auto max-w-5xl">
+          <h2 className="text-center text-3xl font-bold tracking-tight text-gray-900 md:text-4xl">
+            Built for production
+          </h2>
+          <p className="mx-auto mt-4 max-w-2xl text-center text-gray-500">
+            Everything you need to ship a secure, branded AI experience to your
+            users.
+          </p>
+          <div className="mt-16 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+            {features.map((feature) => (
+              <div
+                key={feature.title}
+                className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm"
+              >
+                <h3 className="text-base font-semibold text-gray-900">
+                  {feature.title}
+                </h3>
+                <p className="mt-2 text-sm leading-relaxed text-gray-500">
+                  {feature.description}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Pricing preview */}
+      <section className="bg-gray-50 px-6 py-24">
+        <div className="mx-auto max-w-3xl text-center">
+          <h2 className="text-3xl font-bold tracking-tight text-gray-900 md:text-4xl">
+            Simple, transparent pricing
+          </h2>
+          <p className="mt-4 text-gray-500">
+            Start free. Upgrade when you need more.
+          </p>
+          <Link
+            href="/pricing"
+            className="mt-8 inline-block rounded-lg border border-gray-200 px-6 py-3 text-sm font-semibold text-gray-700 hover:border-gray-300 hover:bg-white"
+          >
+            View pricing
+          </Link>
+        </div>
+      </section>
+
+      {/* Final CTA */}
+      <section className="px-6 py-24">
+        <div className="mx-auto max-w-3xl text-center">
+          <h2 className="text-3xl font-bold tracking-tight text-gray-900 md:text-4xl">
+            Ready to add AI to your site?
+          </h2>
+          <p className="mt-4 text-gray-500">
+            Set up in under five minutes. No credit card required.
+          </p>
+          <Link
+            href="/login"
+            className="mt-8 inline-block rounded-lg bg-blue-600 px-8 py-3.5 text-base font-semibold text-white shadow-sm hover:bg-blue-700"
+          >
+            Get Started
+          </Link>
+        </div>
+      </section>
+    </main>
+  );
+}

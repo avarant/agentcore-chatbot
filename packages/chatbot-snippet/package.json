@@ -1,0 +1,13 @@
+{
+  "name": "@agent77/chatbot-snippet",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "esbuild src/chatbot.ts --bundle --minify --format=iife --outfile=dist/chatbot.js",
+    "dev": "esbuild src/chatbot.ts --bundle --format=iife --outfile=dist/chatbot.js --watch"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0",
+    "typescript": "^5.7.0"
+  }
+}

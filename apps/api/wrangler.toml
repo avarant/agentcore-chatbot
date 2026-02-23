@@ -1,0 +1,21 @@
+name = "agent77-api"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "agent77-db"
+database_id = "PLACEHOLDER_DATABASE_ID"
+
+[[kv_namespaces]]
+binding = "CACHE"
+id = "PLACEHOLDER_KV_ID"
+
+[[r2_buckets]]
+binding = "ASSETS"
+bucket_name = "agent77-assets"
+
+[vars]
+COGNITO_USER_POOL_ID = "PLACEHOLDER"
+COGNITO_REGION = "us-east-1"
+COGNITO_CLIENT_ID = "PLACEHOLDER"
