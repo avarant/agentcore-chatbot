@@ -2,18 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+
+const API_URL = "https://api.agent77.app";
 
 const navItems = [
   { label: "Overview", href: "/dashboard", icon: HomeIcon },
   { label: "Setup", href: "/dashboard/setup", icon: SetupIcon },
   { label: "Snippet", href: "/dashboard/snippet", icon: CodeIcon },
   { label: "Settings", href: "/dashboard/settings", icon: SettingsIcon },
-  { label: "Usage", href: "/dashboard/usage", icon: ChartIcon },
 ];
-
-// Placeholder auth check — will wire Cognito later
-const user = { email: "user@example.com" };
 
 export default function DashboardLayout({
   children,
@@ -22,6 +20,36 @@ export default function DashboardLayout({
 }) {
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [user, setUser] = useState<{ email: string } | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch(`${API_URL}/api/auth/me`, { credentials: "include" })
+      .then((res) => {
+        if (!res.ok) {
+          window.location.href = "/login";
+          return null;
+        }
+        return res.json();
+      })
+      .then((data) => {
+        if (data?.user) {
+          setUser(data.user);
+        }
+        setLoading(false);
+      })
+      .catch(() => {
+        window.location.href = "/login";
+      });
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <p className="text-sm text-gray-500">Loading...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -81,7 +109,7 @@ export default function DashboardLayout({
           </button>
           <div className="hidden lg:block" />
           <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-600">{user.email}</span>
+            <span className="text-sm text-gray-600">{user?.email}</span>
             <Link
               href="/"
               className="text-sm text-gray-500 hover:text-gray-700"

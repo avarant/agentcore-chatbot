@@ -5,17 +5,20 @@ compatibility_date = "2024-01-01"
 [[d1_databases]]
 binding = "DB"
 database_name = "agent77-db"
-database_id = "PLACEHOLDER_DATABASE_ID"
+database_id = "95efd10c-8b79-4af0-8d05-d6f0a60a3ce9"
 
 [[kv_namespaces]]
 binding = "CACHE"
-id = "PLACEHOLDER_KV_ID"
+id = "ef5c2846e4b5456e8c179c12632f6da4"
 
 [[r2_buckets]]
 binding = "ASSETS"
 bucket_name = "agent77-assets"
 
 [vars]
-COGNITO_USER_POOL_ID = "PLACEHOLDER"
+COGNITO_USER_POOL_ID = "us-east-1_oK8PnrfOx"
 COGNITO_REGION = "us-east-1"
-COGNITO_CLIENT_ID = "PLACEHOLDER"
+COGNITO_CLIENT_ID = "723jk7bq2m4686e4opr6i4q7pl"
+COGNITO_DOMAIN = "agent77.auth.us-east-1.amazoncognito.com"
+COGNITO_REDIRECT_URI = "https://api.agent77.app/api/auth/callback"
+DASHBOARD_URL = "https://agent77.app/dashboard"

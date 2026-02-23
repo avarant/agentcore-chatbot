@@ -5,11 +5,8 @@ import { getCustomerByUserId, createCustomer } from "../db/queries";
 
 export const authRoutes = new Hono<Env>();
 
-authRoutes.post("/callback", async (c) => {
-  const { code, redirect_uri } = await c.req.json<{
-    code: string;
-    redirect_uri?: string;
-  }>();
+authRoutes.get("/callback", async (c) => {
+  const code = c.req.query("code");
 
   if (!code) {
     return c.json({ error: "Missing authorization code" }, 400);
@@ -22,7 +19,7 @@ authRoutes.post("/callback", async (c) => {
     client_id: c.env.COGNITO_CLIENT_ID,
     client_secret: c.env.COGNITO_CLIENT_SECRET,
     code,
-    redirect_uri: redirect_uri || c.env.COGNITO_REDIRECT_URI,
+    redirect_uri: c.env.COGNITO_REDIRECT_URI,
   });
 
   const tokenRes = await fetch(tokenUrl, {
@@ -68,17 +65,16 @@ authRoutes.post("/callback", async (c) => {
     });
   }
 
-  // Set JWT cookie
+  // Set JWT cookie and redirect to dashboard
   const maxAge = tokens.expires_in || 3600;
-  c.header(
-    "Set-Cookie",
-    `token=${tokens.id_token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAge}`
-  );
+  const dashboardUrl = c.env.DASHBOARD_URL || "https://agent77.app/dashboard";
 
-  return c.json({
-    user: { sub: payload.sub, email: payload.email },
-    access_token: tokens.access_token,
-    expires_in: tokens.expires_in,
+  return new Response(null, {
+    status: 302,
+    headers: {
+      Location: dashboardUrl,
+      "Set-Cookie": `token=${tokens.id_token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAge}; Domain=.agent77.app`,
+    },
   });
 });
 

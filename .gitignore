@@ -4,3 +4,4 @@ dist
 .wrangler
 .env*
 .DS_Store
+out/

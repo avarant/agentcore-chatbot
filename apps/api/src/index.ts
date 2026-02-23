@@ -7,7 +7,13 @@ import { stripeRoutes } from "./routes/stripe";
 
 const app = new Hono<Env>();
 
-app.use("*", cors());
+app.use(
+  "*",
+  cors({
+    origin: ["https://agent77.app", "http://localhost:3000"],
+    credentials: true,
+  })
+);
 
 app.route("/api/auth", authRoutes);
 app.route("/api/customers", customerRoutes);
