@@ -1,6 +1,33 @@
+"use client";
+
 import Link from "next/link";
+import { useCustomer } from "./customer-context";
 
 export default function DashboardPage() {
+  const { customer, mcpConfig } = useCustomer();
+
+  const isActive = customer?.status === "active" && mcpConfig?.runtime_arn;
+  const isPending = customer && !isActive;
+  const needsSetup = !customer;
+
+  const statusColor = isActive
+    ? "green"
+    : isPending
+      ? "yellow"
+      : "gray";
+
+  const statusLabel = isActive
+    ? "Active"
+    : isPending
+      ? "Pending Setup"
+      : "Not Configured";
+
+  const statusDescription = isActive
+    ? "Your chatbot is live and accepting messages."
+    : isPending
+      ? "Complete the setup wizard to provision your chatbot."
+      : "Get started by running the setup wizard.";
+
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-gray-900">Overview</h1>
@@ -9,25 +36,45 @@ export default function DashboardPage() {
       <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
         <div className="flex items-center gap-3">
           <span className="relative flex h-3 w-3">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
-            <span className="relative inline-flex h-3 w-3 rounded-full bg-green-500" />
+            {isActive && (
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
+            )}
+            <span
+              className={`relative inline-flex h-3 w-3 rounded-full ${
+                statusColor === "green"
+                  ? "bg-green-500"
+                  : statusColor === "yellow"
+                    ? "bg-yellow-500"
+                    : "bg-gray-400"
+              }`}
+            />
           </span>
-          <span className="text-lg font-semibold text-gray-900">Active</span>
+          <span className="text-lg font-semibold text-gray-900">
+            {statusLabel}
+          </span>
         </div>
-        <p className="mt-2 text-sm text-gray-500">
-          Your chatbot is live and accepting messages.
-        </p>
+        <p className="mt-2 text-sm text-gray-500">{statusDescription}</p>
       </div>
 
       {/* Quick stats */}
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-          <p className="text-sm font-medium text-gray-500">Messages this month</p>
-          <p className="mt-1 text-3xl font-bold text-gray-900">1,247</p>
+          <p className="text-sm font-medium text-gray-500">Domain</p>
+          <p className="mt-1 text-xl font-bold text-gray-900">
+            {customer?.domain || "—"}
+          </p>
         </div>
         <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
           <p className="text-sm font-medium text-gray-500">Active since</p>
-          <p className="mt-1 text-3xl font-bold text-gray-900">Jan 15, 2026</p>
+          <p className="mt-1 text-xl font-bold text-gray-900">
+            {customer?.created_at
+              ? new Date(customer.created_at).toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                })
+              : "—"}
+          </p>
         </div>
       </div>
 

@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useCustomer } from "../customer-context";
+
+const API_URL = "https://api.agent77.app";
 
 const steps = [
   { number: 1, label: "Domain" },
@@ -11,6 +14,7 @@ const steps = [
 ];
 
 export default function SetupPage() {
+  const { customer, mcpConfig, reload } = useCustomer();
   const [step, setStep] = useState(1);
   const [domain, setDomain] = useState("");
   const [mcpUrl, setMcpUrl] = useState("");
@@ -18,13 +22,102 @@ export default function SetupPage() {
   const [audiences, setAudiences] = useState("chatbot");
   const [provisioning, setProvisioning] = useState(false);
   const [provisioned, setProvisioned] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // If already provisioned, show that state
+  const alreadyProvisioned = mcpConfig?.runtime_arn != null;
 
   async function handleProvision() {
     setProvisioning(true);
-    // API stub — will wire to real endpoint later
-    await new Promise((r) => setTimeout(r, 2000));
-    setProvisioning(false);
-    setProvisioned(true);
+    setError(null);
+
+    try {
+      let customerId = customer?.id;
+
+      // Step 1: Create customer if doesn't exist
+      if (!customerId) {
+        const res = await fetch(`${API_URL}/api/customers`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ domain }),
+        });
+        if (!res.ok) {
+          throw new Error("Failed to create customer");
+        }
+        const data = await res.json();
+        customerId = data.customer.id;
+      }
+
+      // Step 2: Save MCP config via PUT
+      const putRes = await fetch(`${API_URL}/api/customers/${customerId}`, {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          domain,
+          mcp_config: {
+            mcp_url: mcpUrl,
+            oidc_discovery_url: oidcUrl,
+            allowed_audiences: audiences,
+          },
+        }),
+      });
+      if (!putRes.ok) {
+        throw new Error("Failed to save configuration");
+      }
+
+      // Step 3: Provision AgentCore runtime
+      const provRes = await fetch(
+        `${API_URL}/api/customers/${customerId}/provision`,
+        {
+          method: "POST",
+          credentials: "include",
+        }
+      );
+      if (!provRes.ok) {
+        const errData = await provRes.json().catch(() => ({}));
+        throw new Error(
+          (errData as { error?: string }).error || "Provisioning failed"
+        );
+      }
+
+      setProvisioned(true);
+      await reload();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setProvisioning(false);
+    }
+  }
+
+  if (alreadyProvisioned) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold text-gray-900">Setup Wizard</h1>
+        <div className="rounded-xl border border-green-200 bg-green-50 p-6 shadow-sm">
+          <div className="flex items-center gap-3">
+            <svg className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+            <h2 className="text-lg font-semibold text-green-800">
+              Chatbot is provisioned
+            </h2>
+          </div>
+          <p className="mt-2 text-sm text-green-700">
+            Your chatbot is set up and ready. Go to{" "}
+            <Link href="/dashboard/snippet" className="underline font-medium">
+              Snippet
+            </Link>{" "}
+            to get the embed code, or{" "}
+            <Link href="/dashboard/settings" className="underline font-medium">
+              Settings
+            </Link>{" "}
+            to update your configuration.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -58,6 +151,12 @@ export default function SetupPage() {
           </button>
         ))}
       </div>
+
+      {error && (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          {error}
+        </div>
+      )}
 
       {/* Step content */}
       <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
