@@ -8,7 +8,20 @@ out/
 
 # Terraform
 terraform/.terraform/
+terraform/.terraform.lock.hcl
 terraform/terraform.tfstate
 terraform/terraform.tfstate.backup
 terraform/tfplan
 terraform/*.tfplan
+terraform/agentcore_endpoint_url.txt
+
+# Build artifacts
+agent-source.zip
+agent/agent.zip
+agent/package/
+agent/__pycache__/
+*.pyc
+apps/api/dist/lambda.zip
+
+# Lock files (pnpm only — ignore npm)
+apps/api/package-lock.json
