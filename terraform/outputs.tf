@@ -89,17 +89,12 @@ output "frontend_bucket_arn" {
 }
 
 # ---------------------------------------------------------------------------
-# ECR
+# AgentCore
 # ---------------------------------------------------------------------------
 
-output "ecr_repository_url" {
-  description = "ECR repository URL for the agent image"
-  value       = aws_ecr_repository.agent.repository_url
-}
-
-output "ecr_repository_arn" {
-  description = "ECR repository ARN"
-  value       = aws_ecr_repository.agent.arn
+output "agentcore_endpoint_url" {
+  description = "AgentCore runtime endpoint URL"
+  value       = local.agentcore_endpoint_url
 }
 
 # ---------------------------------------------------------------------------
@@ -114,20 +109,6 @@ output "lambda_function_name" {
 output "lambda_function_arn" {
   description = "Lambda function ARN"
   value       = aws_lambda_function.api.arn
-}
-
-# ---------------------------------------------------------------------------
-# AgentCore
-# ---------------------------------------------------------------------------
-
-output "agentcore_runtime_arn" {
-  description = "AgentCore runtime ARN (constructed — check agentcore_runtime_output.json for actual value)"
-  value       = local.agentcore_runtime_arn
-}
-
-output "agentcore_runtime_role_arn" {
-  description = "IAM role ARN for AgentCore runtime"
-  value       = var.enable_agentcore ? aws_iam_role.agentcore_runtime[0].arn : ""
 }
 
 # ---------------------------------------------------------------------------

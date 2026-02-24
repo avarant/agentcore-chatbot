@@ -92,3 +92,33 @@ resource "aws_cognito_user_pool_client" "dashboard" {
 
   prevent_user_existence_errors = "ENABLED"
 }
+
+# ---------------------------------------------------------------------------
+# Auto-create admin user
+# ---------------------------------------------------------------------------
+
+resource "null_resource" "admin_user" {
+  triggers = {
+    email        = var.admin_email
+    user_pool_id = aws_cognito_user_pool.main.id
+  }
+
+  provisioner "local-exec" {
+    interpreter = ["/bin/bash", "-c"]
+    command     = <<-SCRIPT
+      aws cognito-idp admin-create-user \
+        --user-pool-id ${aws_cognito_user_pool.main.id} \
+        --username '${var.admin_email}' \
+        --user-attributes Name=email,Value='${var.admin_email}' Name=email_verified,Value=true \
+        --message-action SUPPRESS \
+        --region ${var.aws_region} 2>/dev/null || true
+
+      aws cognito-idp admin-set-user-password \
+        --user-pool-id ${aws_cognito_user_pool.main.id} \
+        --username '${var.admin_email}' \
+        --password '${var.admin_password}' \
+        --permanent \
+        --region ${var.aws_region}
+    SCRIPT
+  }
+}

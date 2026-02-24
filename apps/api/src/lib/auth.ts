@@ -131,9 +131,10 @@ export const authMiddleware = createMiddleware<Env>(async (c, next) => {
     return c.json({ error: "Unauthorized" }, 401);
   }
 
+  const userPoolId = process.env.COGNITO_USER_POOL_ID!;
   const payload = await validateJwt(token, {
-    userPoolId: process.env.COGNITO_USER_POOL_ID!,
-    region: process.env.COGNITO_REGION!,
+    userPoolId,
+    region: userPoolId.split("_")[0],
     clientId: process.env.COGNITO_CLIENT_ID!,
   });
 

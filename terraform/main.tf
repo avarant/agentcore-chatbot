@@ -11,6 +11,10 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
+    awscc = {
+      source  = "hashicorp/awscc"
+      version = "~> 1.0"
+    }
     null = {
       source  = "hashicorp/null"
       version = "~> 3.0"
@@ -48,8 +52,24 @@ provider "aws" {
   }
 }
 
+provider "awscc" {
+  region = var.aws_region
+}
+
 data "aws_caller_identity" "current" {}
 data "aws_partition" "current" {}
+
+# Default VPC + subnets for AgentCore networking
+data "aws_vpc" "default" {
+  default = true
+}
+
+data "aws_subnets" "default" {
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.default.id]
+  }
+}
 
 locals {
   account_id  = data.aws_caller_identity.current.account_id

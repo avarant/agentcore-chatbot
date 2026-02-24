@@ -1,9 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useCustomer } from "./customer-context";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
+
+interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
 
 export default function DashboardPage() {
   const { customer, mcpConfig, reload } = useCustomer();
@@ -18,6 +23,12 @@ export default function DashboardPage() {
   const [snippet, setSnippet] = useState<string | null>(null);
   const [snippetLoading, setSnippetLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  // Chat state
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Save state
   const [saving, setSaving] = useState(false);
@@ -63,6 +74,11 @@ export default function DashboardPage() {
       .finally(() => setSnippetLoading(false));
   }, [customer?.id, mcpConfig?.runtime_arn]);
 
+  // Auto-scroll chat
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
   // Status
   const isActive = customer?.status === "active" && mcpConfig?.runtime_arn;
   const isPending = customer && !isActive;
@@ -91,9 +107,9 @@ export default function DashboardPage() {
         body: JSON.stringify({
           domain,
           mcp_config: {
-            mcp_url: mcpUrl,
-            oidc_discovery_url: oidcUrl,
-            allowed_audiences: audiences,
+            mcp_url: mcpUrl || undefined,
+            oidc_discovery_url: oidcUrl || undefined,
+            allowed_audiences: audiences || undefined,
           },
         }),
       });
@@ -142,6 +158,47 @@ export default function DashboardPage() {
     setTimeout(() => setCopied(false), 2000);
   }
 
+  async function handleChatSend(e: React.FormEvent) {
+    e.preventDefault();
+    const prompt = chatInput.trim();
+    if (!prompt || chatLoading) return;
+
+    setChatInput("");
+    setMessages((prev) => [...prev, { role: "user", content: prompt }]);
+    setChatLoading(true);
+
+    try {
+      const res = await fetch(`${API_URL}/api/chat`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Request failed" }));
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: `Error: ${err.error || "Request failed"}` },
+        ]);
+        return;
+      }
+
+      const data = await res.json();
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: data.response || "No response" },
+      ]);
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: "Error: Failed to connect to the server" },
+      ]);
+    } finally {
+      setChatLoading(false);
+    }
+  }
+
   return (
     <div className="space-y-8">
       <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
@@ -152,7 +209,74 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* 1. Status */}
+      {/* 1. Test Chatbot */}
+      <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
+        <div className="border-b border-gray-200 px-6 py-4">
+          <h2 className="text-lg font-semibold text-gray-900">Test Chatbot</h2>
+          <p className="mt-1 text-sm text-gray-500">
+            Send messages to test your AgentCore chatbot.
+          </p>
+        </div>
+
+        <div className="flex h-80 flex-col">
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
+            {messages.length === 0 && (
+              <p className="text-center text-sm text-gray-400 mt-16">
+                Send a message to start chatting
+              </p>
+            )}
+            {messages.map((msg, i) => (
+              <div
+                key={i}
+                className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+              >
+                <div
+                  className={`max-w-[80%] rounded-lg px-4 py-2 text-sm whitespace-pre-wrap ${
+                    msg.role === "user"
+                      ? "bg-blue-600 text-white"
+                      : "bg-gray-100 text-gray-900"
+                  }`}
+                >
+                  {msg.content}
+                </div>
+              </div>
+            ))}
+            {chatLoading && (
+              <div className="flex justify-start">
+                <div className="bg-gray-100 rounded-lg px-4 py-2 text-sm text-gray-500">
+                  Thinking...
+                </div>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Input */}
+          <form
+            onSubmit={handleChatSend}
+            className="border-t border-gray-200 px-6 py-3 flex gap-2"
+          >
+            <input
+              type="text"
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              placeholder="Type a message..."
+              disabled={chatLoading}
+              className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none disabled:opacity-50"
+            />
+            <button
+              type="submit"
+              disabled={chatLoading || !chatInput.trim()}
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            >
+              Send
+            </button>
+          </form>
+        </div>
+      </div>
+
+      {/* 2. Status */}
       <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
         <h2 className="text-lg font-semibold text-gray-900">Status</h2>
         <div className="mt-4 flex items-center gap-3">
@@ -180,7 +304,7 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* 2. Configuration */}
+      {/* 3. Configuration */}
       <form
         onSubmit={handleSave}
         className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm space-y-5"
@@ -189,23 +313,23 @@ export default function DashboardPage() {
 
         <div>
           <label className="block text-sm font-medium text-gray-700">
-            MCP Server URL
+            MCP Server URL <span className="text-gray-400 font-normal">(optional)</span>
           </label>
           <input
-            type="url"
+            type="text"
             value={mcpUrl}
             onChange={(e) => setMcpUrl(e.target.value)}
-            placeholder="https://mcp.example.com"
+            placeholder="https://mcp.example.com (leave blank to use Claude without tools)"
             className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
           />
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700">
-            OIDC Discovery URL
+            OIDC Discovery URL <span className="text-gray-400 font-normal">(optional)</span>
           </label>
           <input
-            type="url"
+            type="text"
             value={oidcUrl}
             onChange={(e) => setOidcUrl(e.target.value)}
             placeholder="https://auth.example.com"
@@ -228,7 +352,7 @@ export default function DashboardPage() {
 
         <div>
           <label className="block text-sm font-medium text-gray-700">
-            Allowed Audiences
+            Allowed Audiences <span className="text-gray-400 font-normal">(optional)</span>
           </label>
           <input
             type="text"
@@ -255,7 +379,7 @@ export default function DashboardPage() {
         </div>
       </form>
 
-      {/* 3. Snippet */}
+      {/* 4. Snippet */}
       <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm space-y-4">
         <h2 className="text-lg font-semibold text-gray-900">Embed Snippet</h2>
 
@@ -293,7 +417,7 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* 4. Danger Zone */}
+      {/* 5. Danger Zone */}
       {customer && (
         <div className="rounded-xl border-2 border-red-200 bg-white p-6 shadow-sm">
           <h2 className="text-lg font-semibold text-red-600">Danger Zone</h2>

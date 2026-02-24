@@ -59,11 +59,11 @@ customerRoutes.put("/me", async (c) => {
     const existingConfig = await getMcpConfig();
     if (existingConfig) {
       await updateMcpConfig(mcpUpdate);
-    } else if (mcpUpdate.mcp_url && mcpUpdate.oidc_discovery_url) {
+    } else if (mcpUpdate.mcp_url || mcpUpdate.oidc_discovery_url) {
       await createMcpConfig({
         id: crypto.randomUUID(),
-        mcp_url: mcpUpdate.mcp_url,
-        oidc_discovery_url: mcpUpdate.oidc_discovery_url,
+        mcp_url: mcpUpdate.mcp_url || "",
+        oidc_discovery_url: mcpUpdate.oidc_discovery_url || "",
         allowed_audiences: mcpUpdate.allowed_audiences,
       });
     }

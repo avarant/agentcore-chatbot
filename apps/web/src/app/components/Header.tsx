@@ -21,18 +21,18 @@ export default function Header() {
         </nav>
 
         <div className="flex items-center gap-3">
-          <Link
-            href="/login"
+          <a
+            href="/login.html"
             className="text-sm font-medium text-gray-600 hover:text-gray-900"
           >
             Log in
-          </Link>
-          <Link
-            href="/login"
+          </a>
+          <a
+            href="/login.html"
             className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
           >
             Sign up
-          </Link>
+          </a>
         </div>
       </div>
     </header>

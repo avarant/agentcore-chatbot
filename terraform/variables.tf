@@ -31,10 +31,15 @@ variable "domain" {
   default     = ""
 }
 
-variable "agent_image_uri" {
-  description = "Full ECR image URI for the agent container (e.g. 123456789012.dkr.ecr.us-east-1.amazonaws.com/agent77-agent:latest)"
+variable "admin_email" {
+  description = "Email address for the initial admin user (created in Cognito on first apply)"
   type        = string
-  default     = ""
+}
+
+variable "admin_password" {
+  description = "Password for the initial admin user"
+  type        = string
+  sensitive   = true
 }
 
 variable "lambda_memory_size" {
