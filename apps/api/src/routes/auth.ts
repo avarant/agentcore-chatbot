@@ -14,15 +14,14 @@ authRoutes.get("/callback", async (c) => {
 
   const cognitoDomain = process.env.COGNITO_DOMAIN!;
   const clientId = process.env.COGNITO_CLIENT_ID!;
-  const clientSecret = process.env.COGNITO_CLIENT_SECRET!;
-  const redirectUri = process.env.COGNITO_REDIRECT_URI!;
+  const dashboardUrl = process.env.DASHBOARD_URL || "";
+  const redirectUri = dashboardUrl ? `${dashboardUrl}/api/auth/callback` : "http://localhost:3000/auth/callback";
 
   // Exchange auth code for tokens with Cognito
-  const tokenUrl = `https://${cognitoDomain}/oauth2/token`;
+  const tokenUrl = `${cognitoDomain}/oauth2/token`;
   const params = new URLSearchParams({
     grant_type: "authorization_code",
     client_id: clientId,
-    client_secret: clientSecret,
     code,
     redirect_uri: redirectUri,
   });
@@ -46,9 +45,11 @@ authRoutes.get("/callback", async (c) => {
   };
 
   // Validate the ID token
+  const userPoolId = process.env.COGNITO_USER_POOL_ID!;
+  const region = userPoolId.split("_")[0];
   const payload = await validateJwt(tokens.id_token, {
-    userPoolId: process.env.COGNITO_USER_POOL_ID!,
-    region: process.env.COGNITO_REGION!,
+    userPoolId,
+    region,
     clientId,
   });
 
@@ -68,12 +69,12 @@ authRoutes.get("/callback", async (c) => {
 
   // Set JWT cookie and redirect to dashboard
   const maxAge = tokens.expires_in || 3600;
-  const dashboardUrl = process.env.DASHBOARD_URL || "/dashboard";
+  const redirectTo = dashboardUrl ? `${dashboardUrl}/dashboard` : "/dashboard";
 
   return new Response(null, {
     status: 302,
     headers: {
-      Location: dashboardUrl,
+      Location: redirectTo,
       "Set-Cookie": `token=${tokens.id_token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAge}`,
     },
   });
@@ -99,9 +100,11 @@ authRoutes.get("/me", async (c) => {
     return c.json({ error: "Unauthorized" }, 401);
   }
 
+  const meUserPoolId = process.env.COGNITO_USER_POOL_ID!;
+  const meRegion = meUserPoolId.split("_")[0];
   const payload = await validateJwt(token, {
-    userPoolId: process.env.COGNITO_USER_POOL_ID!,
-    region: process.env.COGNITO_REGION!,
+    userPoolId: meUserPoolId,
+    region: meRegion,
     clientId: process.env.COGNITO_CLIENT_ID!,
   });
 

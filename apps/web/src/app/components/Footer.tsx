@@ -14,9 +14,9 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href="#" className="text-sm text-gray-500 hover:text-gray-700">
+                <a href="https://github.com/avarant/agent77" className="text-sm text-gray-500 hover:text-gray-700">
                   GitHub
-                </Link>
+                </a>
               </li>
               <li>
                 <Link href="/docs" className="text-sm text-gray-500 hover:text-gray-700">
@@ -67,9 +67,9 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href="#" className="text-sm text-gray-500 hover:text-gray-700">
+                <a href="https://github.com/avarant/agent77" className="text-sm text-gray-500 hover:text-gray-700">
                   GitHub
-                </Link>
+                </a>
               </li>
             </ul>
           </div>

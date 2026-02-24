@@ -12,9 +12,9 @@ export default function Header() {
           <Link href="/#features" className="text-sm font-medium text-gray-600 hover:text-gray-900">
             Features
           </Link>
-          <Link href="#" className="text-sm font-medium text-gray-600 hover:text-gray-900">
+          <a href="https://github.com/avarant/agent77" className="text-sm font-medium text-gray-600 hover:text-gray-900">
             GitHub
-          </Link>
+          </a>
           <Link href="/docs" className="text-sm font-medium text-gray-600 hover:text-gray-900">
             Docs
           </Link>

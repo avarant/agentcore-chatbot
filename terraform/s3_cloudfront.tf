@@ -273,8 +273,14 @@ resource "aws_cloudfront_function" "spa_rewrite" {
         return request;
       }
 
-      // Rewrite to index.html for SPA routing
-      request.uri = '/index.html';
+      // Append .html for static pages (e.g. /login -> /login.html)
+      // If the .html file doesn't exist, S3 returns 404 which CloudFront
+      // custom_error_response maps to /index.html (SPA fallback)
+      if (uri === '/') {
+        request.uri = '/index.html';
+      } else {
+        request.uri = uri + '.html';
+      }
       return request;
     }
   JS

@@ -71,12 +71,12 @@ export default function HomePage() {
             authenticated AI assistant.
           </p>
           <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-            <Link
-              href="#"
+            <a
+              href="https://github.com/avarant/agent77"
               className="rounded-lg bg-blue-600 px-8 py-3.5 text-base font-semibold text-white shadow-sm hover:bg-blue-700"
             >
               Deploy Now
-            </Link>
+            </a>
             <Link
               href="/docs"
               className="rounded-lg border border-gray-200 px-8 py-3.5 text-base font-semibold text-gray-700 hover:border-gray-300 hover:bg-gray-50"
@@ -150,7 +150,7 @@ export default function HomePage() {
           </p>
           <div className="mt-10 overflow-x-auto rounded-lg bg-gray-900 p-6 font-mono text-sm leading-relaxed text-gray-100">
             <p className="text-gray-400"># Clone the repository</p>
-            <p>git clone https://github.com/agent77-org/agent77.git</p>
+            <p>git clone https://github.com/avarant/agent77.git</p>
             <p className="mt-4 text-gray-400"># Configure and deploy</p>
             <p>cd agent77/terraform</p>
             <p>cp terraform.tfvars.example terraform.tfvars</p>
@@ -169,12 +169,12 @@ export default function HomePage() {
           <p className="mt-4 text-gray-500">
             Own your infrastructure. Keep your data. Ship AI chat in minutes.
           </p>
-          <Link
-            href="#"
+          <a
+            href="https://github.com/avarant/agent77"
             className="mt-8 inline-block rounded-lg bg-blue-600 px-8 py-3.5 text-base font-semibold text-white shadow-sm hover:bg-blue-700"
           >
             Deploy Now
-          </Link>
+          </a>
         </div>
       </section>
     </main>
