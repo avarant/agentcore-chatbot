@@ -1,36 +1,15 @@
-export default function OidcDiscoveryPage() {
-  return (
-    <article className="prose prose-gray max-w-3xl">
-      <h1>OIDC Discovery Setup</h1>
-      <p>
-        Agent77 verifies user JWTs by fetching your public keys via standard
-        OIDC discovery. You only need to serve two static-ish JSON endpoints —
-        no full OIDC provider required.
-      </p>
+---
+import Docs from '../../layouts/Docs.astro';
 
-      <h2>1. OpenID Configuration</h2>
-      <p>
-        Serve a JSON response at{" "}
-        <code>{"https://<your-domain>/.well-known/openid-configuration"}</code>:
-      </p>
-      <pre><code className="language-json">{`{
+const openidConfig = `{
   "issuer": "https://app.example.com",
   "jwks_uri": "https://app.example.com/.well-known/jwks.json",
   "id_token_signing_alg_values_supported": ["RS256"],
   "response_types_supported": ["id_token"],
   "subject_types_supported": ["public"]
-}`}</code></pre>
-      <p>
-        The critical field is <code>jwks_uri</code> — Agent77 uses it to find
-        your public keys. The <code>issuer</code> must match the{" "}
-        <code>iss</code> claim in your JWTs.
-      </p>
+}`;
 
-      <h2>2. JWKS Endpoint</h2>
-      <p>
-        Serve your public key(s) at the URL specified in <code>jwks_uri</code>:
-      </p>
-      <pre><code className="language-json">{`{
+const jwksExample = `{
   "keys": [
     {
       "kty": "RSA",
@@ -41,17 +20,9 @@ export default function OidcDiscoveryPage() {
       "e": "AQAB"
     }
   ]
-}`}</code></pre>
-      <p>
-        The <code>kid</code> must match the <code>kid</code> header in JWTs
-        issued by your token endpoint. You can include multiple keys to support
-        rotation.
-      </p>
+}`;
 
-      <h2>RSA Key Pair Generation</h2>
-
-      <h3>Python</h3>
-      <pre><code className="language-python">{`# generate_keys.py — run once
+const pythonKeygen = `# generate_keys.py — run once
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
 
@@ -72,10 +43,9 @@ with open("public.pem", "wb") as f:
         serialization.SubjectPublicKeyInfo,
     ))
 
-print("Keys written to private.pem and public.pem")`}</code></pre>
+print("Keys written to private.pem and public.pem")`;
 
-      <h3>Node.js</h3>
-      <pre><code className="language-javascript">{`// generate-keys.js — run once
+const nodeKeygen = `// generate-keys.js — run once
 const crypto = require("crypto");
 const fs = require("fs");
 
@@ -87,19 +57,18 @@ const { publicKey, privateKey } = crypto.generateKeyPairSync("rsa", {
 
 fs.writeFileSync("private.pem", privateKey);
 fs.writeFileSync("public.pem", publicKey);
-console.log("Keys written to private.pem and public.pem");`}</code></pre>
+console.log("Keys written to private.pem and public.pem");`;
 
-      <h2>Django Example</h2>
-      <pre><code className="language-python">{`# urls.py
+const djangoUrls = `# urls.py
 from django.urls import path
 from . import views
 
 urlpatterns = [
     path(".well-known/openid-configuration", views.openid_configuration),
     path(".well-known/jwks.json", views.jwks),
-]`}</code></pre>
+]`;
 
-      <pre><code className="language-python">{`# views.py
+const djangoViews = `# views.py
 import json, base64
 from django.conf import settings
 from django.http import JsonResponse
@@ -132,10 +101,9 @@ def jwks(request):
             "n": _b64url(numbers.n, n_bytes),
             "e": _b64url(numbers.e, 3),
         }]
-    })`}</code></pre>
+    })`;
 
-      <h2>Express Example</h2>
-      <pre><code className="language-javascript">{`// routes/oidc.js
+const expressOidc = `// routes/oidc.js
 const crypto = require("crypto");
 const fs = require("fs");
 
@@ -161,7 +129,54 @@ function jwks(req, res) {
   });
 }
 
-module.exports = { openidConfiguration, jwks };`}</code></pre>
-    </article>
-  );
-}
+module.exports = { openidConfiguration, jwks };`;
+---
+
+<Docs title="OIDC Discovery Setup - Agent77 Docs">
+  <article class="prose prose-gray max-w-3xl">
+    <h1>OIDC Discovery Setup</h1>
+    <p>
+      Agent77 verifies user JWTs by fetching your public keys via standard
+      OIDC discovery. You only need to serve two static-ish JSON endpoints —
+      no full OIDC provider required.
+    </p>
+
+    <h2>1. OpenID Configuration</h2>
+    <p>
+      Serve a JSON response at
+      <code>{"https://<your-domain>/.well-known/openid-configuration"}</code>:
+    </p>
+    <pre><code class="language-json">{openidConfig}</code></pre>
+    <p>
+      The critical field is <code>jwks_uri</code> — Agent77 uses it to find
+      your public keys. The <code>issuer</code> must match the
+      <code>iss</code> claim in your JWTs.
+    </p>
+
+    <h2>2. JWKS Endpoint</h2>
+    <p>
+      Serve your public key(s) at the URL specified in <code>jwks_uri</code>:
+    </p>
+    <pre><code class="language-json">{jwksExample}</code></pre>
+    <p>
+      The <code>kid</code> must match the <code>kid</code> header in JWTs
+      issued by your token endpoint. You can include multiple keys to support
+      rotation.
+    </p>
+
+    <h2>RSA Key Pair Generation</h2>
+
+    <h3>Python</h3>
+    <pre><code class="language-python">{pythonKeygen}</code></pre>
+
+    <h3>Node.js</h3>
+    <pre><code class="language-javascript">{nodeKeygen}</code></pre>
+
+    <h2>Django Example</h2>
+    <pre><code class="language-python">{djangoUrls}</code></pre>
+    <pre><code class="language-python">{djangoViews}</code></pre>
+
+    <h2>Express Example</h2>
+    <pre><code class="language-javascript">{expressOidc}</code></pre>
+  </article>
+</Docs>

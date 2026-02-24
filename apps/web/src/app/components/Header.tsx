@@ -22,52 +22,23 @@ export default function Header() {
     window.location.href = "/";
   }
 
+  if (!user) return null;
+
   return (
     <header className="sticky top-0 z-50 border-b border-gray-100 bg-white/80 backdrop-blur-md">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-        <Link href="/" className="text-xl font-bold tracking-tight text-gray-900">
+        <Link href="/dashboard" className="text-xl font-bold tracking-tight text-gray-900">
           Agent77
         </Link>
 
-        <nav className="hidden items-center gap-8 md:flex">
-          <Link href="/#features" className="text-sm font-medium text-gray-600 hover:text-gray-900">
-            Features
-          </Link>
-          <a href="https://github.com/avarant/agent77" className="text-sm font-medium text-gray-600 hover:text-gray-900">
-            GitHub
-          </a>
-          <Link href="/docs" className="text-sm font-medium text-gray-600 hover:text-gray-900">
-            Docs
-          </Link>
-        </nav>
-
         <div className="flex items-center gap-3">
-          {user ? (
-            <>
-              <span className="text-sm text-gray-600">{user.email}</span>
-              <button
-                onClick={handleLogout}
-                className="text-sm font-medium text-gray-600 hover:text-gray-900"
-              >
-                Log out
-              </button>
-            </>
-          ) : (
-            <>
-              <a
-                href="/login.html"
-                className="text-sm font-medium text-gray-600 hover:text-gray-900"
-              >
-                Log in
-              </a>
-              <a
-                href="/login.html"
-                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-              >
-                Sign up
-              </a>
-            </>
-          )}
+          <span className="text-sm text-gray-600">{user.email}</span>
+          <button
+            onClick={handleLogout}
+            className="text-sm font-medium text-gray-600 hover:text-gray-900"
+          >
+            Log out
+          </button>
         </div>
       </div>
     </header>

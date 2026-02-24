@@ -1,0 +1,167 @@
+---
+import Docs from '../../layouts/Docs.astro';
+
+const djangoExample = `# views.py
+from datetime import timedelta
+from django.conf import settings
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+import jwt, time
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def chatbot_token(request):
+    now = int(time.time())
+    payload = {
+        "sub": str(request.user.id),
+        "aud": "chatbot",
+        "iss": settings.SITE_URL,       # e.g. "https://app.example.com"
+        "iat": now,
+        "exp": now + 1800,              # 30 minutes
+    }
+    private_key = settings.CHATBOT_PRIVATE_KEY  # RSA PEM string
+    token = jwt.encode(payload, private_key, algorithm="RS256",
+                       headers={"kid": settings.CHATBOT_KEY_ID})
+    return Response({"token": token})`;
+
+const expressExample = `// routes/chatbot-token.js
+const jwt = require("jsonwebtoken");
+const fs = require("fs");
+
+const PRIVATE_KEY = fs.readFileSync("./keys/private.pem");
+const KEY_ID = process.env.CHATBOT_KEY_ID;
+
+module.exports = (req, res) => {
+  if (!req.user) return res.status(401).json({ error: "Not authenticated" });
+
+  const token = jwt.sign(
+    {
+      sub: req.user.id,
+      aud: "chatbot",
+      iss: process.env.SITE_URL,
+    },
+    PRIVATE_KEY,
+    {
+      algorithm: "RS256",
+      expiresIn: "30m",
+      keyid: KEY_ID,
+    }
+  );
+
+  res.json({ token });
+};`;
+
+const railsExample = `# app/controllers/api/chatbot_tokens_controller.rb
+class Api::ChatbotTokensController < ApplicationController
+  before_action :authenticate_user!
+
+  def create
+    now = Time.now.to_i
+    payload = {
+      sub: current_user.id.to_s,
+      aud: "chatbot",
+      iss: ENV["SITE_URL"],
+      iat: now,
+      exp: now + 1800
+    }
+    private_key = OpenSSL::PKey::RSA.new(ENV["CHATBOT_PRIVATE_KEY"])
+    token = JWT.encode(payload, private_key, "RS256",
+                       { kid: ENV["CHATBOT_KEY_ID"] })
+    render json: { token: token }
+  end
+end`;
+---
+
+<Docs title="Token Endpoint Setup - Agent77 Docs">
+  <article class="prose prose-gray max-w-3xl">
+    <h1>Token Endpoint Setup</h1>
+    <p>
+      The token endpoint is an API route on <strong>your</strong> backend that
+      exchanges a user&apos;s existing session (cookie, OAuth token, etc.) for a
+      short-lived JWT. The Agent77 widget calls this endpoint when a
+      conversation starts.
+    </p>
+
+    <h2>Required JWT Claims</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Claim</th>
+          <th>Description</th>
+          <th>Example</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>sub</code></td>
+          <td>User identifier</td>
+          <td><code>"user_92x7f"</code></td>
+        </tr>
+        <tr>
+          <td><code>aud</code></td>
+          <td>Audience — must be <code>"chatbot"</code></td>
+          <td><code>"chatbot"</code></td>
+        </tr>
+        <tr>
+          <td><code>iss</code></td>
+          <td>Issuer — your domain</td>
+          <td><code>"https://app.example.com"</code></td>
+        </tr>
+        <tr>
+          <td><code>iat</code></td>
+          <td>Issued-at timestamp (epoch seconds)</td>
+          <td><code>1700000000</code></td>
+        </tr>
+        <tr>
+          <td><code>exp</code></td>
+          <td>Expiration timestamp</td>
+          <td><code>1700001800</code></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Django Example</h2>
+    <p>
+      Uses <code>djangorestframework-simplejwt</code> for signing. Install
+      with <code>pip install djangorestframework-simplejwt</code>.
+    </p>
+    <pre><code class="language-python">{djangoExample}</code></pre>
+
+    <h2>Express / Node.js Example</h2>
+    <p>
+      Uses <code>jsonwebtoken</code>. Install with
+      <code>npm install jsonwebtoken</code>.
+    </p>
+    <pre><code class="language-javascript">{expressExample}</code></pre>
+
+    <h2>Rails Example</h2>
+    <p>
+      Uses <code>ruby-jwt</code>. Add <code>gem "jwt"</code> to your
+      Gemfile.
+    </p>
+    <pre><code class="language-ruby">{railsExample}</code></pre>
+
+    <h2>Security Notes</h2>
+    <ul>
+      <li>
+        <strong>Short-lived tokens.</strong> Set <code>exp</code> to 15–30
+        minutes. The widget will re-fetch a token when it expires.
+      </li>
+      <li>
+        <strong>Use RS256.</strong> Asymmetric signing lets Agent77 verify
+        tokens using your public key without ever seeing your private key.
+      </li>
+      <li>
+        <strong>Authenticate first.</strong> The token endpoint must only issue
+        JWTs for already-authenticated users. Never issue tokens to
+        unauthenticated requests.
+      </li>
+      <li>
+        <strong>Include <code>kid</code> in the header.</strong> This lets
+        Agent77 look up the correct public key from your JWKS endpoint,
+        enabling key rotation.
+      </li>
+    </ul>
+  </article>
+</Docs>
