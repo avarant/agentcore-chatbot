@@ -92,9 +92,24 @@ output "frontend_bucket_arn" {
 # AgentCore
 # ---------------------------------------------------------------------------
 
-output "agentcore_endpoint_url" {
-  description = "AgentCore runtime endpoint URL"
-  value       = local.agentcore_endpoint_url
+output "agent_runtime_id" {
+  description = "AgentCore runtime ID"
+  value       = local.agentcore_runtime_id
+}
+
+output "agent_runtime_arn" {
+  description = "AgentCore runtime ARN"
+  value       = local.agentcore_runtime_arn
+}
+
+output "ecr_repository_url" {
+  description = "ECR repository URL for agent container image"
+  value       = var.enable_agentcore ? aws_ecr_repository.agent[0].repository_url : ""
+}
+
+output "codebuild_project_name" {
+  description = "CodeBuild project name for agent image builds"
+  value       = var.enable_agentcore ? aws_codebuild_project.agent[0].name : ""
 }
 
 # ---------------------------------------------------------------------------

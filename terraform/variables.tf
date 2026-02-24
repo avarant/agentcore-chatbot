@@ -75,11 +75,17 @@ variable "enable_agentcore" {
 variable "agentcore_model_id" {
   description = "Foundation model ID for AgentCore runtime (e.g. anthropic.claude-3-sonnet-20240229-v1:0)"
   type        = string
-  default     = "anthropic.claude-3-sonnet-20240229-v1:0"
+  default     = "anthropic.claude-sonnet-4-6"
 }
 
 variable "cloudfront_price_class" {
   description = "CloudFront price class"
   type        = string
   default     = "PriceClass_100"
+}
+
+variable "agentcore_image_tag" {
+  description = "Docker image tag for the AgentCore container"
+  type        = string
+  default     = "latest"
 }

@@ -1,54 +1,262 @@
 ###############################################################################
-# Agent77 — agentcore.tf — AgentCore Runtime + Endpoint (native awscc provider)
+# Agent77 — agentcore.tf — Container-based deploy via ECR + CodeBuild
 ###############################################################################
 
 # ---------------------------------------------------------------------------
-# Build agent ZIP artifact
+# ECR Repository
 # ---------------------------------------------------------------------------
 
-resource "null_resource" "agent_zip" {
+resource "aws_ecr_repository" "agent" {
+  count = var.enable_agentcore ? 1 : 0
+
+  name                 = "${local.name_prefix}-agent"
+  image_tag_mutability = "MUTABLE"
+  force_delete         = true
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+
+  tags = {
+    Name = "${local.name_prefix}-agent"
+  }
+}
+
+resource "aws_ecr_lifecycle_policy" "agent" {
+  count = var.enable_agentcore ? 1 : 0
+
+  repository = aws_ecr_repository.agent[0].name
+
+  policy = jsonencode({
+    rules = [
+      {
+        rulePriority = 1
+        description  = "Keep last 5 images"
+        selection = {
+          tagStatus   = "any"
+          countType   = "imageCountMoreThan"
+          countNumber = 5
+        }
+        action = {
+          type = "expire"
+        }
+      }
+    ]
+  })
+}
+
+# ---------------------------------------------------------------------------
+# S3 — Agent source code bucket
+# ---------------------------------------------------------------------------
+
+resource "aws_s3_bucket" "agent_source" {
+  count = var.enable_agentcore ? 1 : 0
+
+  bucket        = "${local.name_prefix}-agent-source-${local.account_id}"
+  force_destroy = true
+
+  tags = {
+    Name = "${local.name_prefix}-agent-source"
+  }
+}
+
+resource "aws_s3_bucket_versioning" "agent_source" {
+  count = var.enable_agentcore ? 1 : 0
+
+  bucket = aws_s3_bucket.agent_source[0].id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+# ---------------------------------------------------------------------------
+# ZIP and upload agent source to S3
+# ---------------------------------------------------------------------------
+
+data "archive_file" "agent_source" {
+  count = var.enable_agentcore ? 1 : 0
+
+  type        = "zip"
+  source_dir  = "${path.module}/../agent"
+  output_path = "${path.module}/../agent-source.zip"
+  excludes    = ["package", "agent.zip", "__pycache__", "*.pyc"]
+}
+
+resource "aws_s3_object" "agent_source" {
+  count = var.enable_agentcore ? 1 : 0
+
+  bucket = aws_s3_bucket.agent_source[0].id
+  key    = "agent-source.zip"
+  source = data.archive_file.agent_source[0].output_path
+  etag   = data.archive_file.agent_source[0].output_md5
+
+  depends_on = [data.archive_file.agent_source]
+}
+
+# ---------------------------------------------------------------------------
+# IAM Role — CodeBuild
+# ---------------------------------------------------------------------------
+
+resource "aws_iam_role" "codebuild" {
+  count = var.enable_agentcore ? 1 : 0
+
+  name = "${local.name_prefix}-codebuild"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Service = "codebuild.amazonaws.com"
+        }
+        Action = "sts:AssumeRole"
+      }
+    ]
+  })
+
+  tags = {
+    Name = "${local.name_prefix}-codebuild"
+  }
+}
+
+resource "aws_iam_role_policy" "codebuild" {
+  count = var.enable_agentcore ? 1 : 0
+
+  name = "${local.name_prefix}-codebuild"
+  role = aws_iam_role.codebuild[0].id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "CloudWatchLogs"
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents",
+        ]
+        Resource = "arn:${local.partition}:logs:${var.aws_region}:${local.account_id}:*"
+      },
+      {
+        Sid    = "ECRPush"
+        Effect = "Allow"
+        Action = [
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:CompleteLayerUpload",
+          "ecr:GetAuthorizationToken",
+          "ecr:InitiateLayerUpload",
+          "ecr:PutImage",
+          "ecr:UploadLayerPart",
+          "ecr:BatchGetImage",
+          "ecr:GetDownloadUrlForLayer",
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "S3ReadSource"
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:GetObjectVersion",
+          "s3:GetBucketVersioning",
+        ]
+        Resource = [
+          aws_s3_bucket.agent_source[0].arn,
+          "${aws_s3_bucket.agent_source[0].arn}/*",
+        ]
+      }
+    ]
+  })
+}
+
+# ---------------------------------------------------------------------------
+# CodeBuild Project — Build Docker image and push to ECR
+# ---------------------------------------------------------------------------
+
+resource "aws_codebuild_project" "agent" {
+  count = var.enable_agentcore ? 1 : 0
+
+  name          = "${local.name_prefix}-agent-build"
+  description   = "Build Agent77 container image and push to ECR"
+  service_role  = aws_iam_role.codebuild[0].arn
+  build_timeout = 15
+
+  artifacts {
+    type = "NO_ARTIFACTS"
+  }
+
+  environment {
+    compute_type                = "BUILD_GENERAL1_SMALL"
+    image                       = "aws/codebuild/amazonlinux2-aarch64-standard:3.0"
+    type                        = "ARM_CONTAINER"
+    privileged_mode             = true
+    image_pull_credentials_type = "CODEBUILD"
+
+    environment_variable {
+      name  = "AWS_ACCOUNT_ID"
+      value = local.account_id
+    }
+
+    environment_variable {
+      name  = "AWS_DEFAULT_REGION"
+      value = var.aws_region
+    }
+
+    environment_variable {
+      name  = "ECR_REPO_URI"
+      value = aws_ecr_repository.agent[0].repository_url
+    }
+
+    environment_variable {
+      name  = "IMAGE_TAG"
+      value = var.agentcore_image_tag
+    }
+  }
+
+  source {
+    type      = "S3"
+    location  = "${aws_s3_bucket.agent_source[0].id}/agent-source.zip"
+    buildspec = file("${path.module}/buildspec.yml")
+  }
+
+  logs_config {
+    cloudwatch_logs {
+      group_name  = "/aws/codebuild/${local.name_prefix}-agent-build"
+      stream_name = "build"
+    }
+  }
+
+  tags = {
+    Name = "${local.name_prefix}-agent-build"
+  }
+}
+
+# ---------------------------------------------------------------------------
+# Trigger CodeBuild when source changes
+# ---------------------------------------------------------------------------
+
+resource "null_resource" "trigger_build" {
   count = var.enable_agentcore ? 1 : 0
 
   triggers = {
-    main_py_hash = filemd5("${path.module}/../agent/main.py")
-    req_hash     = filemd5("${path.module}/../agent/requirements.txt")
+    source_hash = data.archive_file.agent_source[0].output_md5
   }
 
   provisioner "local-exec" {
-    command = <<-SCRIPT
-      set -euo pipefail
-      cd "${path.module}/../agent"
-      rm -rf package agent.zip
-      pip install -r requirements.txt -t package --quiet \
-        --platform manylinux2014_aarch64 \
-        --only-binary=:all:
-      find package -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
-      find package -name '*.pyc' -delete 2>/dev/null || true
-      cd package && zip -r9 ../agent.zip . --quiet -x '*__pycache__*' '*.pyc'
-      cd .. && zip -g agent.zip main.py
-      echo "Agent ZIP built: $(ls -lh agent.zip | awk '{print $5}')"
-    SCRIPT
     interpreter = ["/bin/bash", "-c"]
+    command     = "${path.module}/scripts/build-image.sh ${aws_codebuild_project.agent[0].name} ${aws_ecr_repository.agent[0].repository_url} ${var.agentcore_image_tag} ${var.aws_region}"
   }
+
+  depends_on = [
+    aws_codebuild_project.agent,
+    aws_s3_object.agent_source,
+  ]
 }
 
 # ---------------------------------------------------------------------------
-# Upload agent ZIP to S3
-# ---------------------------------------------------------------------------
-
-resource "aws_s3_object" "agent_zip" {
-  count = var.enable_agentcore ? 1 : 0
-
-  bucket = aws_s3_bucket.frontend.id
-  key    = "agent/agent.zip"
-  source = "${path.module}/../agent/agent.zip"
-  etag   = null_resource.agent_zip[0].id # force update when ZIP is rebuilt
-
-  depends_on = [null_resource.agent_zip]
-}
-
-# ---------------------------------------------------------------------------
-# IAM Role for AgentCore Runtime
+# IAM Role — AgentCore Runtime (execution role)
 # ---------------------------------------------------------------------------
 
 resource "aws_iam_role" "agentcore_runtime" {
@@ -69,6 +277,9 @@ resource "aws_iam_role" "agentcore_runtime" {
           StringEquals = {
             "aws:SourceAccount" = local.account_id
           }
+          ArnLike = {
+            "aws:SourceArn" = "arn:${local.partition}:bedrock-agentcore:${var.aws_region}:${local.account_id}:*"
+          }
         }
       }
     ]
@@ -77,6 +288,13 @@ resource "aws_iam_role" "agentcore_runtime" {
   tags = {
     Name = "${local.name_prefix}-agentcore-runtime"
   }
+}
+
+resource "aws_iam_role_policy_attachment" "agentcore_managed" {
+  count = var.enable_agentcore ? 1 : 0
+
+  role       = aws_iam_role.agentcore_runtime[0].name
+  policy_arn = "arn:${local.partition}:iam::aws:policy/BedrockAgentCoreFullAccess"
 }
 
 resource "aws_iam_role_policy" "agentcore_runtime" {
@@ -89,22 +307,15 @@ resource "aws_iam_role_policy" "agentcore_runtime" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid    = "BedrockModelInvoke"
+        Sid    = "ECRPull"
         Effect = "Allow"
         Action = [
-          "bedrock:InvokeModel",
-          "bedrock:InvokeModelWithResponseStream",
+          "ecr:GetAuthorizationToken",
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage",
         ]
-        Resource = "arn:${local.partition}:bedrock:${var.aws_region}::foundation-model/*"
-      },
-      {
-        Sid    = "S3ReadArtifact"
-        Effect = "Allow"
-        Action = [
-          "s3:GetObject",
-          "s3:GetObjectVersion",
-        ]
-        Resource = "${aws_s3_bucket.frontend.arn}/agent/*"
+        Resource = "*"
       },
       {
         Sid    = "CloudWatchLogs"
@@ -115,6 +326,42 @@ resource "aws_iam_role_policy" "agentcore_runtime" {
           "logs:PutLogEvents",
         ]
         Resource = "arn:${local.partition}:logs:${var.aws_region}:${local.account_id}:*"
+      },
+      {
+        Sid    = "XRay"
+        Effect = "Allow"
+        Action = [
+          "xray:PutTraceSegments",
+          "xray:PutTelemetryRecords",
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "BedrockModelInvoke"
+        Effect = "Allow"
+        Action = [
+          "bedrock:InvokeModel",
+          "bedrock:InvokeModelWithResponseStream",
+          "bedrock:GetFoundationModel",
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "MarketplaceSubscription"
+        Effect = "Allow"
+        Action = [
+          "aws-marketplace:ViewSubscriptions",
+          "aws-marketplace:Subscribe",
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "WorkloadIdentityToken"
+        Effect = "Allow"
+        Action = [
+          "bedrock-agentcore:GetWorkloadIdentityToken",
+        ]
+        Resource = "*"
       },
       {
         Sid    = "DynamoDBAccess"
@@ -136,34 +383,29 @@ resource "aws_iam_role_policy" "agentcore_runtime" {
 }
 
 # ---------------------------------------------------------------------------
-# AgentCore Runtime (native awscc resource)
+# AgentCore Runtime — Container configuration
 # ---------------------------------------------------------------------------
 
-resource "awscc_bedrockagentcore_runtime" "main" {
+resource "aws_bedrockagentcore_agent_runtime" "main" {
   count = var.enable_agentcore ? 1 : 0
 
   agent_runtime_name = "${replace(local.name_prefix, "-", "_")}_runtime"
   description        = "Agent77 chatbot runtime"
   role_arn           = aws_iam_role.agentcore_runtime[0].arn
 
-  agent_runtime_artifact = {
-    code_configuration = {
-      runtime     = "PYTHON_3_12"
-      entry_point = ["main.py"]
-      code = {
-        s3 = {
-          bucket = aws_s3_bucket.frontend.id
-          prefix = "agent/agent.zip"
-        }
-      }
+  agent_runtime_artifact {
+    container_configuration {
+      container_uri = "${aws_ecr_repository.agent[0].repository_url}:${var.agentcore_image_tag}"
     }
   }
 
-  network_configuration = {
+  network_configuration {
     network_mode = "PUBLIC"
   }
 
-  protocol_configuration = "HTTP"
+  protocol_configuration {
+    server_protocol = "HTTP"
+  }
 
   environment_variables = {
     MODEL_ID        = var.agentcore_model_id
@@ -172,53 +414,17 @@ resource "awscc_bedrockagentcore_runtime" "main" {
   }
 
   depends_on = [
-    aws_s3_object.agent_zip,
+    null_resource.trigger_build,
     aws_iam_role_policy.agentcore_runtime,
+    aws_iam_role_policy_attachment.agentcore_managed,
   ]
 }
 
 # ---------------------------------------------------------------------------
-# AgentCore Runtime Endpoint
-# ---------------------------------------------------------------------------
-
-resource "awscc_bedrockagentcore_runtime_endpoint" "main" {
-  count = var.enable_agentcore ? 1 : 0
-
-  agent_runtime_id = awscc_bedrockagentcore_runtime.main[0].agent_runtime_id
-  name             = "${replace(local.name_prefix, "-", "_")}_endpoint"
-  description      = "Agent77 chatbot endpoint"
-}
-
-# ---------------------------------------------------------------------------
-# Retrieve endpoint URL after creation
-# ---------------------------------------------------------------------------
-
-resource "null_resource" "agentcore_endpoint_url" {
-  count = var.enable_agentcore ? 1 : 0
-
-  triggers = {
-    endpoint_arn = awscc_bedrockagentcore_runtime_endpoint.main[0].agent_runtime_endpoint_arn
-  }
-
-  provisioner "local-exec" {
-    interpreter = ["/bin/bash", "-c"]
-    command     = <<-SCRIPT
-      aws bedrock-agent-core get-agent-runtime-endpoint \
-        --agent-runtime-endpoint-arn '${awscc_bedrockagentcore_runtime_endpoint.main[0].agent_runtime_endpoint_arn}' \
-        --region ${var.aws_region} \
-        --query 'endpointUrl' --output text \
-        > '${path.module}/agentcore_endpoint_url.txt' 2>/dev/null || \
-      echo "https://${awscc_bedrockagentcore_runtime_endpoint.main[0].runtime_endpoint_id}.runtime.bedrock-agentcore.${var.aws_region}.amazonaws.com" \
-        > '${path.module}/agentcore_endpoint_url.txt'
-    SCRIPT
-  }
-}
-
-# ---------------------------------------------------------------------------
-# Locals — expose endpoint info for other resources
+# Locals — expose runtime info for other resources
 # ---------------------------------------------------------------------------
 
 locals {
-  agentcore_endpoint_url = var.enable_agentcore ? awscc_bedrockagentcore_runtime_endpoint.main[0].agent_runtime_endpoint_arn : ""
-  agentcore_runtime_id   = var.enable_agentcore ? awscc_bedrockagentcore_runtime.main[0].agent_runtime_id : ""
+  agentcore_runtime_id  = var.enable_agentcore ? aws_bedrockagentcore_agent_runtime.main[0].agent_runtime_id : ""
+  agentcore_runtime_arn = var.enable_agentcore ? aws_bedrockagentcore_agent_runtime.main[0].agent_runtime_arn : ""
 }

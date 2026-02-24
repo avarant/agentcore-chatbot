@@ -71,7 +71,10 @@ resource "aws_iam_role_policy" "lambda_agentcore" {
         Action = [
           "bedrock-agentcore:InvokeAgentRuntime",
         ]
-        Resource = var.enable_agentcore ? awscc_bedrockagentcore_runtime.main[0].agent_runtime_arn : "*"
+        Resource = var.enable_agentcore ? [
+          aws_bedrockagentcore_agent_runtime.main[0].agent_runtime_arn,
+          "${aws_bedrockagentcore_agent_runtime.main[0].agent_runtime_arn}/*",
+        ] : ["*"]
       }
     ]
   })
@@ -105,7 +108,7 @@ resource "aws_lambda_function" "api" {
       COGNITO_CLIENT_ID     = aws_cognito_user_pool_client.dashboard.id
       COGNITO_DOMAIN        = "https://${aws_cognito_user_pool_domain.main.domain}.auth.${var.aws_region}.amazoncognito.com"
       DASHBOARD_URL         = local.dashboard_url
-      AGENTCORE_ENDPOINT_ARN = local.agentcore_endpoint_url
+      AGENTCORE_ENDPOINT_ARN = local.agentcore_runtime_arn
       AGENTCORE_RUNTIME_ID   = local.agentcore_runtime_id
       AWS_ACCOUNT_ID         = local.account_id
       PROJECT_NAME           = var.project_name

@@ -9,17 +9,26 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 5.0"
+      version = "~> 6.0"
     }
-    awscc = {
-      source  = "hashicorp/awscc"
-      version = "~> 1.0"
+    archive = {
+      source  = "hashicorp/archive"
+      version = "~> 2.0"
     }
     null = {
       source  = "hashicorp/null"
       version = "~> 3.0"
     }
   }
+
+  # Remote backend — run `terraform/bootstrap` first, then uncomment:
+  # backend "s3" {
+  #   bucket         = "agent77-tfstate-ACCOUNT_ID"
+  #   key            = "agent77/terraform.tfstate"
+  #   region         = "us-east-1"
+  #   dynamodb_table = "agent77-tflock"
+  #   encrypt        = true
+  # }
 
   backend "local" {
     path = "terraform.tfstate"
@@ -52,9 +61,6 @@ provider "aws" {
   }
 }
 
-provider "awscc" {
-  region = var.aws_region
-}
 
 data "aws_caller_identity" "current" {}
 data "aws_partition" "current" {}

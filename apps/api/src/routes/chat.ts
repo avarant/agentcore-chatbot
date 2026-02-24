@@ -25,14 +25,11 @@ chatRoutes.post("/", async (c) => {
     return c.json({ error: "Missing prompt" }, 400);
   }
 
-  // Extract the runtime ARN from the endpoint ARN
-  // Endpoint ARN: arn:aws:bedrock-agentcore:REGION:ACCOUNT:runtime/RUNTIME_ID/runtime-endpoint/ENDPOINT_NAME
-  // Runtime ARN:  arn:aws:bedrock-agentcore:REGION:ACCOUNT:runtime/RUNTIME_ID
   const runtimeArn = endpointArn.includes("/runtime-endpoint/")
     ? endpointArn.split("/runtime-endpoint/")[0]
     : endpointArn;
 
-  const payload = JSON.stringify({ message: body.prompt });
+  const payload = JSON.stringify({ prompt: body.prompt });
 
   try {
     const command = new InvokeAgentRuntimeCommand({
@@ -42,11 +39,31 @@ chatRoutes.post("/", async (c) => {
       accept: "application/json",
     });
 
-    const response = await client.send(command);
+    const result = await client.send(command);
 
+    // The SDK returns `response` as a readable stream, not `payload`
+    const stream = (result as any).response;
     let responseText = "";
-    if (response.payload) {
-      const decoded = new TextDecoder().decode(response.payload);
+
+    if (stream) {
+      const chunks: Uint8Array[] = [];
+      for await (const chunk of stream) {
+        if (chunk instanceof Uint8Array) {
+          chunks.push(chunk);
+        } else if (chunk?.bytes) {
+          chunks.push(chunk.bytes);
+        } else if (chunk?.chunk?.bytes) {
+          chunks.push(chunk.chunk.bytes);
+        }
+      }
+      const merged = new Uint8Array(chunks.reduce((a, c) => a + c.length, 0));
+      let offset = 0;
+      for (const chunk of chunks) {
+        merged.set(chunk, offset);
+        offset += chunk.length;
+      }
+      const decoded = new TextDecoder().decode(merged);
+
       try {
         const parsed = JSON.parse(decoded);
         responseText = parsed.response || parsed.body || decoded;
@@ -61,6 +78,7 @@ chatRoutes.post("/", async (c) => {
     return c.json({ response: responseText });
   } catch (err: unknown) {
     const error = err as Error;
+    console.error("AgentCore invocation error:", error.name, error.message);
     return c.json(
       { error: "AgentCore invocation failed", details: error.message || String(err) },
       502
