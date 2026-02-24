@@ -18,8 +18,7 @@ export default function Header() {
   }, []);
 
   function handleLogout() {
-    document.cookie = "token=; path=/; max-age=0";
-    window.location.href = "/";
+    window.location.href = `${API_URL}/api/auth/logout`;
   }
 
   if (!user) return null;

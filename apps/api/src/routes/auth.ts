@@ -80,6 +80,21 @@ authRoutes.get("/callback", async (c) => {
   });
 });
 
+authRoutes.get("/logout", async (c) => {
+  const cognitoDomain = process.env.COGNITO_DOMAIN!;
+  const clientId = process.env.COGNITO_CLIENT_ID!;
+  const dashboardUrl = process.env.DASHBOARD_URL || "";
+  const logoutRedirect = encodeURIComponent(dashboardUrl || "http://localhost:3000");
+
+  return new Response(null, {
+    status: 302,
+    headers: {
+      Location: `${cognitoDomain}/logout?client_id=${clientId}&logout_uri=${logoutRedirect}`,
+      "Set-Cookie": `token=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`,
+    },
+  });
+});
+
 authRoutes.get("/me", async (c) => {
   let token: string | undefined;
 

@@ -4,6 +4,10 @@ import { useState, useEffect, useCallback } from "react";
 import { CustomerContext, type Customer, type McpConfig } from "./customer-context";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
+const COGNITO_DOMAIN = process.env.NEXT_PUBLIC_COGNITO_DOMAIN || "";
+const CLIENT_ID = process.env.NEXT_PUBLIC_COGNITO_CLIENT_ID || "";
+const REDIRECT_URI = encodeURIComponent(process.env.NEXT_PUBLIC_AUTH_CALLBACK_URL || "");
+const LOGIN_URL = `${COGNITO_DOMAIN}/login?response_type=code&client_id=${CLIENT_ID}&redirect_uri=${REDIRECT_URI}&scope=${encodeURIComponent("openid email profile")}`;
 
 export default function DashboardLayout({
   children,
@@ -37,7 +41,7 @@ export default function DashboardLayout({
     fetch(`${API_URL}/api/auth/me`, { credentials: "include" })
       .then((res) => {
         if (!res.ok) {
-          window.location.href = "/login";
+          window.location.href = LOGIN_URL;
           return null;
         }
         return res.json();
@@ -49,7 +53,7 @@ export default function DashboardLayout({
         setLoading(false);
       })
       .catch(() => {
-        window.location.href = "/login";
+        window.location.href = LOGIN_URL;
       });
   }, [loadCustomer]);
 
