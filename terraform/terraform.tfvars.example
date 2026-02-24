@@ -7,12 +7,13 @@ aws_region   = "us-east-1"
 project_name = "agent77"
 environment  = "prod"
 
-# Optional: Custom domain (requires ACM certificate in us-east-1)
-# domain              = "chat.example.com"
-# acm_certificate_arn = "arn:aws:acm:us-east-1:123456789012:certificate/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+# Custom domain (optional — leave empty to use CloudFront default domain)
+# Requires DNS CNAME + ACM certificate validation (see README)
+# domain = "chat.example.com"
 
-# Agent Docker image URI — set after pushing to ECR
-# agent_image_uri = "123456789012.dkr.ecr.us-east-1.amazonaws.com/agent77-agent:latest"
+# Admin credentials — used to create the initial Cognito dashboard user
+admin_email    = "admin@example.com"
+admin_password = "ChangeMe123!"
 
 # Lambda configuration
 lambda_memory_size = 512
@@ -24,7 +25,7 @@ dynamodb_billing_mode = "PAY_PER_REQUEST"
 # Cognito hosted UI domain prefix (must be globally unique)
 # cognito_domain_prefix = "agent77-mycompany"
 
-# Enable AgentCore runtime provisioning (requires Bedrock access)
+# Enable AgentCore runtime provisioning (requires Bedrock model access)
 enable_agentcore = true
 
 # Foundation model for AgentCore
