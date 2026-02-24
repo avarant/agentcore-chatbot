@@ -35,10 +35,6 @@ export default function DashboardPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  // Delete state
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-
   // Error state
   const [error, setError] = useState<string | null>(null);
 
@@ -80,21 +76,6 @@ export default function DashboardPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Status
-  const isActive = customer?.status === "active" && mcpConfig?.runtime_arn;
-  const isPending = customer && !isActive;
-  const statusColor = isActive ? "green" : isPending ? "yellow" : "gray";
-  const statusLabel = isActive
-    ? "Active"
-    : isPending
-      ? "Pending Setup"
-      : "Not Configured";
-  const statusDescription = isActive
-    ? "Your chatbot is live and accepting messages."
-    : isPending
-      ? "Complete the configuration below to finish setup."
-      : "Configure your chatbot to get started.";
-
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
@@ -126,29 +107,6 @@ export default function DashboardPage() {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
       setSaving(false);
-    }
-  }
-
-  async function handleDelete() {
-    setDeleting(true);
-    setError(null);
-
-    try {
-      const res = await fetch(`${API_URL}/api/customers/me`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-
-      if (!res.ok) {
-        throw new Error("Failed to delete chatbot");
-      }
-
-      await reload();
-      setShowDeleteConfirm(false);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
-    } finally {
-      setDeleting(false);
     }
   }
 
@@ -211,35 +169,7 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* 1. Status */}
-        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-gray-900">Status</h2>
-          <div className="mt-4 flex items-center gap-3">
-            <span className="relative flex h-3 w-3">
-              {isActive && (
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
-              )}
-              <span
-                className={`relative inline-flex h-3 w-3 rounded-full ${
-                  statusColor === "green"
-                    ? "bg-green-500"
-                    : statusColor === "yellow"
-                      ? "bg-yellow-500"
-                      : "bg-gray-400"
-                }`}
-              />
-            </span>
-            <span className="font-semibold text-gray-900">{statusLabel}</span>
-          </div>
-          <p className="mt-2 text-sm text-gray-500">{statusDescription}</p>
-          {customer?.domain && (
-            <p className="mt-2 text-sm text-gray-500">
-              Domain: <span className="font-medium text-gray-700">{customer.domain}</span>
-            </p>
-          )}
-        </div>
-
-        {/* 2. Configuration */}
+        {/* Configuration */}
         <form
           onSubmit={handleSave}
           className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm space-y-5"
@@ -352,41 +282,6 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* 4. Danger Zone */}
-        {customer && (
-          <div className="rounded-xl border-2 border-red-200 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-red-600">Danger Zone</h2>
-            <p className="mt-1 text-sm text-gray-500">
-              Permanently delete your chatbot and all associated data. This action
-              cannot be undone.
-            </p>
-
-            {showDeleteConfirm ? (
-              <div className="mt-4 flex items-center gap-3">
-                <button
-                  onClick={handleDelete}
-                  disabled={deleting}
-                  className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
-                >
-                  {deleting ? "Deleting..." : "Yes, delete my chatbot"}
-                </button>
-                <button
-                  onClick={() => setShowDeleteConfirm(false)}
-                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => setShowDeleteConfirm(true)}
-                className="mt-4 rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
-              >
-                Delete Chatbot
-              </button>
-            )}
-          </div>
-        )}
       </div>
 
       {/* Floating Chat Widget Button */}

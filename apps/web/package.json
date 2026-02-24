@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build"
+    "build": "next build",
+    "deploy": "next build && aws s3 sync out s3://agent77-frontend-724919990906 --delete && aws cloudfront create-invalidation --distribution-id E15C10JAN5SAPW --paths '/*'"
   },
   "dependencies": {
     "next": "^15.1.0",
