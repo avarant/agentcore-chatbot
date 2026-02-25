@@ -16,6 +16,7 @@ export default function DashboardLayout({
 }) {
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [mcpConfig, setMcpConfig] = useState<McpConfig | null>(null);
+  const [runtimeUrl, setRuntimeUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const loadCustomer = useCallback(async () => {
@@ -27,6 +28,7 @@ export default function DashboardLayout({
         const data = await res.json();
         setCustomer(data.customer || null);
         setMcpConfig(data.mcp_config || null);
+        setRuntimeUrl(data.runtime_url || null);
       }
     } catch {
       // ignore — customer may not exist yet
@@ -66,7 +68,7 @@ export default function DashboardLayout({
   }
 
   return (
-    <CustomerContext.Provider value={{ customer, mcpConfig, reload }}>
+    <CustomerContext.Provider value={{ customer, mcpConfig, runtimeUrl, reload }}>
       <div className="min-h-screen bg-gray-50">
         <main className="mx-auto max-w-4xl p-6 lg:p-8">{children}</main>
       </div>

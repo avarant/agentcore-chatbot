@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useCustomer } from "./customer-context";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
+const TOKEN_URL = `${API_URL}/api/auth/token`;
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -11,7 +12,7 @@ interface ChatMessage {
 }
 
 export default function DashboardPage() {
-  const { customer, mcpConfig, reload } = useCustomer();
+  const { customer, mcpConfig, runtimeUrl, reload } = useCustomer();
 
   // Form state
   const [mcpUrl, setMcpUrl] = useState("");
@@ -30,6 +31,8 @@ export default function DashboardPage() {
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const jwtRef = useRef<string | null>(null);
+  const sessionIdRef = useRef(crypto.randomUUID());
 
   // Save state
   const [saving, setSaving] = useState(false);
@@ -117,37 +120,96 @@ export default function DashboardPage() {
     setTimeout(() => setCopied(false), 2000);
   }
 
+  const getToken = useCallback(async (): Promise<string> => {
+    const res = await fetch(TOKEN_URL, { credentials: "include" });
+    if (!res.ok) throw new Error("Failed to get token");
+    const data = await res.json();
+    jwtRef.current = data.token;
+    return data.token;
+  }, []);
+
   async function handleChatSend(e: React.FormEvent) {
     e.preventDefault();
     const prompt = chatInput.trim();
-    if (!prompt || chatLoading) return;
+    if (!prompt || chatLoading || !runtimeUrl) return;
 
     setChatInput("");
     setMessages((prev) => [...prev, { role: "user", content: prompt }]);
     setChatLoading(true);
 
     try {
-      const res = await fetch(`${API_URL}/api/chat`, {
+      if (!jwtRef.current) await getToken();
+
+      let res = await fetch(runtimeUrl, {
         method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          Authorization: `Bearer ${jwtRef.current}`,
+          "Content-Type": "application/json",
+          "X-Amzn-Bedrock-AgentCore-Runtime-Session-Id": sessionIdRef.current,
+        },
         body: JSON.stringify({ prompt }),
       });
 
+      // Retry once on 401 (token expired)
+      if (res.status === 401) {
+        await getToken();
+        res = await fetch(runtimeUrl, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${jwtRef.current}`,
+            "Content-Type": "application/json",
+            "X-Amzn-Bedrock-AgentCore-Runtime-Session-Id": sessionIdRef.current,
+          },
+          body: JSON.stringify({ prompt }),
+        });
+      }
+
       if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: "Request failed" }));
         setMessages((prev) => [
           ...prev,
-          { role: "assistant", content: `Error: ${err.error || "Request failed"}` },
+          { role: "assistant", content: `Error: Request failed (${res.status})` },
         ]);
         return;
       }
 
-      const data = await res.json();
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: data.response || "No response" },
-      ]);
+      // Stream response, then parse
+      const body = res.body;
+      let accumulated = "";
+
+      setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
+
+      if (body) {
+        const reader = body.getReader();
+        const decoder = new TextDecoder();
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          accumulated += decoder.decode(value, { stream: true });
+          setMessages((prev) => {
+            const updated = [...prev];
+            updated[updated.length - 1] = { role: "assistant", content: accumulated };
+            return updated;
+          });
+        }
+      } else {
+        accumulated = await res.text();
+      }
+
+      // Parse JSON response if needed (AgentCore returns {response: "..."})
+      let finalText = accumulated;
+      try {
+        const parsed = JSON.parse(accumulated);
+        finalText = parsed.response || parsed.body || accumulated;
+      } catch {
+        // not JSON, use raw text
+      }
+
+      setMessages((prev) => {
+        const updated = [...prev];
+        updated[updated.length - 1] = { role: "assistant", content: finalText || "No response" };
+        return updated;
+      });
     } catch {
       setMessages((prev) => [
         ...prev,

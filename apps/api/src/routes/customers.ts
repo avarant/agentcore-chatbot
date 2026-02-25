@@ -20,7 +20,11 @@ customerRoutes.use("*", authMiddleware);
 customerRoutes.get("/me", async (c) => {
   const customer = await getCustomer();
   const mcpConfig = await getMcpConfig();
-  return c.json({ customer, mcp_config: mcpConfig });
+  return c.json({
+    customer,
+    mcp_config: mcpConfig,
+    runtime_url: process.env.AGENTCORE_RUNTIME_URL || null,
+  });
 });
 
 customerRoutes.put("/me", async (c) => {

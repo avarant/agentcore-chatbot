@@ -407,6 +407,13 @@ resource "aws_bedrockagentcore_agent_runtime" "main" {
     server_protocol = "HTTP"
   }
 
+  authorizer_configuration {
+    custom_jwt_authorizer {
+      discovery_url    = "https://cognito-idp.${var.aws_region}.amazonaws.com/${aws_cognito_user_pool.main.id}/.well-known/openid-configuration"
+      allowed_audience = [aws_cognito_user_pool_client.dashboard.id]
+    }
+  }
+
   environment_variables = {
     MODEL_ID        = var.agentcore_model_id
     DYNAMODB_TABLE  = aws_dynamodb_table.config.name

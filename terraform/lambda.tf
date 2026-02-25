@@ -56,29 +56,6 @@ resource "aws_iam_role_policy" "lambda_dynamodb" {
   })
 }
 
-resource "aws_iam_role_policy" "lambda_agentcore" {
-  count = var.enable_agentcore ? 1 : 0
-
-  name = "${local.name_prefix}-lambda-agentcore"
-  role = aws_iam_role.lambda_exec.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Sid    = "AgentCoreInvoke"
-        Effect = "Allow"
-        Action = [
-          "bedrock-agentcore:InvokeAgentRuntime",
-        ]
-        Resource = var.enable_agentcore ? [
-          aws_bedrockagentcore_agent_runtime.main[0].agent_runtime_arn,
-          "${aws_bedrockagentcore_agent_runtime.main[0].agent_runtime_arn}/*",
-        ] : ["*"]
-      }
-    ]
-  })
-}
 
 resource "aws_iam_role_policy_attachment" "lambda_basic_execution" {
   role       = aws_iam_role.lambda_exec.name
@@ -108,8 +85,7 @@ resource "aws_lambda_function" "api" {
       COGNITO_CLIENT_ID     = aws_cognito_user_pool_client.dashboard.id
       COGNITO_DOMAIN        = "https://${aws_cognito_user_pool_domain.main.domain}.auth.${var.aws_region}.amazoncognito.com"
       DASHBOARD_URL         = local.dashboard_url
-      AGENTCORE_ENDPOINT_ARN = local.agentcore_runtime_arn
-      AGENTCORE_RUNTIME_ID   = local.agentcore_runtime_id
+      AGENTCORE_RUNTIME_URL  = var.enable_agentcore ? "https://bedrock-agentcore.${var.aws_region}.amazonaws.com/runtimes/${urlencode(aws_bedrockagentcore_agent_runtime.main[0].agent_runtime_arn)}/invocations" : ""
       AWS_ACCOUNT_ID         = local.account_id
       PROJECT_NAME           = var.project_name
     }

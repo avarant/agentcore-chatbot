@@ -95,6 +95,19 @@ authRoutes.get("/logout", async (c) => {
   });
 });
 
+authRoutes.get("/token", async (c) => {
+  const cookie = c.req.header("Cookie");
+  let token: string | undefined;
+  if (cookie) {
+    const match = cookie.match(/(?:^|;\s*)token=([^;]+)/);
+    if (match) token = match[1];
+  }
+  if (!token) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+  return c.json({ token });
+});
+
 authRoutes.get("/me", async (c) => {
   let token: string | undefined;
 

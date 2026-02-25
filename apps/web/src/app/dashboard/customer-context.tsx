@@ -25,12 +25,14 @@ export type McpConfig = {
 type CustomerContextType = {
   customer: Customer | null;
   mcpConfig: McpConfig | null;
+  runtimeUrl: string | null;
   reload: () => Promise<void>;
 };
 
 export const CustomerContext = createContext<CustomerContextType>({
   customer: null,
   mcpConfig: null,
+  runtimeUrl: null,
   reload: async () => {},
 });
 
