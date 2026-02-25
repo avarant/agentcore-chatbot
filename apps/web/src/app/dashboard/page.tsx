@@ -147,7 +147,7 @@ export default function DashboardPage() {
           "Content-Type": "application/json",
           "X-Amzn-Bedrock-AgentCore-Runtime-Session-Id": sessionIdRef.current,
         },
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify({ prompt, session_id: sessionIdRef.current }),
       });
 
       // Retry once on 401 (token expired)

@@ -1,15 +1,20 @@
+import os
+
+# Ensure region is always available for boto3/SDK clients
+REGION = os.environ.get("AWS_REGION_NAME") or os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION") or "us-east-1"
+os.environ.setdefault("AWS_DEFAULT_REGION", REGION)
+
 from strands import Agent
 from bedrock_agentcore.runtime import BedrockAgentCoreApp
+from bedrock_agentcore.memory.integrations.strands.config import AgentCoreMemoryConfig
+from bedrock_agentcore.memory.integrations.strands.session_manager import (
+    AgentCoreMemorySessionManager,
+)
 
 app = BedrockAgentCoreApp()
 
-
-def create_agent() -> Agent:
-    """Create the agent"""
-    return Agent(
-        system_prompt="You are a helpful assistant. Answer questions clearly and concisely.",
-        name="Agent77",
-    )
+MEMORY_ID = os.environ.get("AGENTCORE_MEMORY_ID", "")
+SYSTEM_PROMPT = "You are a helpful assistant. Answer questions clearly and concisely."
 
 
 @app.entrypoint
@@ -21,9 +26,29 @@ async def invoke(payload=None):
             if payload
             else "Hello!"
         )
+        session_id = payload.get("session_id", "default") if payload else "default"
+        actor_id = payload.get("user_id", "anonymous") if payload else "anonymous"
 
-        agent = create_agent()
-        response = agent(query)
+        if MEMORY_ID:
+            config = AgentCoreMemoryConfig(
+                memory_id=MEMORY_ID,
+                session_id=session_id,
+                actor_id=actor_id,
+            )
+            with AgentCoreMemorySessionManager(config, region_name=REGION) as session_manager:
+                agent = Agent(
+                    system_prompt=SYSTEM_PROMPT,
+                    name="Agent77",
+                    session_manager=session_manager,
+                )
+                response = agent(query)
+        else:
+            # Fallback: no memory configured
+            agent = Agent(
+                system_prompt=SYSTEM_PROMPT,
+                name="Agent77",
+            )
+            response = agent(query)
 
         return {"status": "success", "response": response.message["content"][0]["text"]}
 

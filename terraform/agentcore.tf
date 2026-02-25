@@ -415,9 +415,10 @@ resource "aws_bedrockagentcore_agent_runtime" "main" {
   }
 
   environment_variables = {
-    MODEL_ID        = var.agentcore_model_id
-    DYNAMODB_TABLE  = aws_dynamodb_table.config.name
-    AWS_REGION_NAME = var.aws_region
+    MODEL_ID            = var.agentcore_model_id
+    DYNAMODB_TABLE      = aws_dynamodb_table.config.name
+    AWS_REGION_NAME     = var.aws_region
+    AGENTCORE_MEMORY_ID = var.enable_agentcore ? aws_bedrockagentcore_memory.main[0].id : ""
   }
 
   depends_on = [
@@ -425,6 +426,31 @@ resource "aws_bedrockagentcore_agent_runtime" "main" {
     aws_iam_role_policy.agentcore_runtime,
     aws_iam_role_policy_attachment.agentcore_managed,
   ]
+}
+
+# ---------------------------------------------------------------------------
+# AgentCore Memory — conversation persistence
+# ---------------------------------------------------------------------------
+
+resource "aws_bedrockagentcore_memory" "main" {
+  count = var.enable_agentcore ? 1 : 0
+
+  name                 = "${replace(local.name_prefix, "-", "_")}_memory"
+  description          = "Agent77 conversation memory"
+  event_expiry_duration = 30 # days
+
+  tags = {
+    Name = "${local.name_prefix}-memory"
+  }
+}
+
+resource "aws_bedrockagentcore_memory_strategy" "summary" {
+  count = var.enable_agentcore ? 1 : 0
+
+  name       = "${replace(local.name_prefix, "-", "_")}_summary"
+  memory_id  = aws_bedrockagentcore_memory.main[0].id
+  type       = "SUMMARIZATION"
+  namespaces = ["/summaries/{actorId}/{sessionId}"]
 }
 
 # ---------------------------------------------------------------------------

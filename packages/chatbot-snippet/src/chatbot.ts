@@ -70,7 +70,7 @@ import type { ChatbotConfig, ChatMessage } from "./types";
         "Content-Type": "application/json",
         "X-Amzn-Bedrock-AgentCore-Runtime-Session-Id": sessionId,
       },
-      body: JSON.stringify({ prompt: message }),
+      body: JSON.stringify({ prompt: message, session_id: sessionId }),
     });
 
     if (res.status === 401 && !retried) {
