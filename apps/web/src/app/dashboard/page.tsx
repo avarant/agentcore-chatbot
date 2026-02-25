@@ -191,7 +191,7 @@ export default function DashboardPage() {
           "Content-Type": "application/json",
           "X-Amzn-Bedrock-AgentCore-Runtime-Session-Id": sessionIdRef.current,
         },
-        body: JSON.stringify({ prompt, session_id: sessionIdRef.current }),
+        body: JSON.stringify({ prompt, session_id: sessionIdRef.current, user_id: customer?.email?.replace(/[^a-zA-Z0-9\-_/]/g, "_") || "anonymous" }),
       });
 
       // Retry once on 401 (token expired)
@@ -204,7 +204,7 @@ export default function DashboardPage() {
             "Content-Type": "application/json",
             "X-Amzn-Bedrock-AgentCore-Runtime-Session-Id": sessionIdRef.current,
           },
-          body: JSON.stringify({ prompt }),
+          body: JSON.stringify({ prompt, session_id: sessionIdRef.current, user_id: customer?.email?.replace(/[^a-zA-Z0-9\-_/]/g, "_") || "anonymous" }),
         });
       }
 
