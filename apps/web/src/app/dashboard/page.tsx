@@ -34,6 +34,15 @@ export default function DashboardPage() {
   const jwtRef = useRef<string | null>(null);
   const sessionIdRef = useRef(crypto.randomUUID());
 
+  // Conversation history state
+  type Session = { session_id: string; created_at: string };
+  type HistoryMessage = { role: string; content: string; timestamp: string };
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [sessionsLoading, setSessionsLoading] = useState(false);
+  const [selectedSession, setSelectedSession] = useState<string | null>(null);
+  const [historyMessages, setHistoryMessages] = useState<HistoryMessage[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
   // Save state
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -118,6 +127,41 @@ export default function DashboardPage() {
     await navigator.clipboard.writeText(snippet);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  }
+
+  async function loadSessions() {
+    setSessionsLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/api/conversations`, {
+        credentials: "include",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSessions(data.sessions || []);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setSessionsLoading(false);
+    }
+  }
+
+  async function loadSessionMessages(sessionId: string) {
+    setSelectedSession(sessionId);
+    setHistoryLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/api/conversations/${sessionId}`, {
+        credentials: "include",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setHistoryMessages(data.messages || []);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setHistoryLoading(false);
+    }
   }
 
   const getToken = useCallback(async (): Promise<string> => {
@@ -340,6 +384,73 @@ export default function DashboardPage() {
           ) : (
             <p className="text-sm text-gray-500">
               Complete the configuration and provision your chatbot to get the embed snippet.
+            </p>
+          )}
+        </div>
+
+        {/* Conversation History */}
+        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-gray-900">Conversation History</h2>
+            <button
+              onClick={loadSessions}
+              disabled={sessionsLoading}
+              className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            >
+              {sessionsLoading ? "Loading..." : "Load Sessions"}
+            </button>
+          </div>
+
+          {sessions.length > 0 ? (
+            <div className="space-y-3">
+              {/* Session list */}
+              <div className="flex flex-wrap gap-2">
+                {sessions.map((s) => (
+                  <button
+                    key={s.session_id}
+                    onClick={() => loadSessionMessages(s.session_id)}
+                    className={`rounded-lg border px-3 py-1.5 text-xs font-mono transition-colors ${
+                      selectedSession === s.session_id
+                        ? "border-blue-500 bg-blue-50 text-blue-700"
+                        : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                    }`}
+                  >
+                    {new Date(s.created_at).toLocaleString()}
+                  </button>
+                ))}
+              </div>
+
+              {/* Messages for selected session */}
+              {selectedSession && (
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-2 max-h-80 overflow-y-auto">
+                  {historyLoading ? (
+                    <p className="text-sm text-gray-500">Loading messages...</p>
+                  ) : historyMessages.length > 0 ? (
+                    historyMessages.map((msg, i) => (
+                      <div
+                        key={i}
+                        className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                      >
+                        <div
+                          className={`max-w-[80%] rounded-lg px-3 py-2 text-sm whitespace-pre-wrap ${
+                            msg.role === "user"
+                              ? "bg-blue-600 text-white"
+                              : "bg-white text-gray-900 border border-gray-200"
+                          }`}
+                        >
+                          {msg.content}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-gray-500">No messages found.</p>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-500">
+              {sessionsLoading ? "Loading..." : "Click \"Load Sessions\" to view past conversations."}
             </p>
           )}
         </div>
