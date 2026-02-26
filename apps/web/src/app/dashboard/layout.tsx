@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { CustomerContext, type Customer, type McpConfig, type User } from "./customer-context";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Settings, MessageSquare, LogOut, ChevronUp, Bot } from "lucide-react";
+import { Settings, MessageSquare, LogOut, Bot } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 const COGNITO_DOMAIN = process.env.NEXT_PUBLIC_COGNITO_DOMAIN || "";
@@ -139,7 +139,6 @@ export default function DashboardLayout({
               <span className="flex-1 truncate text-left text-sm">
                 {user?.email || "Unknown"}
               </span>
-              <ChevronUp className={`size-4 text-muted-foreground transition-transform ${showSignOut ? "" : "rotate-180"}`} />
             </button>
           </div>
         </aside>
