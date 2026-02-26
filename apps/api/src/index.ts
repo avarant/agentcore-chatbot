@@ -24,3 +24,12 @@ app.get("/", (c) => c.json({ status: "ok", service: "agent77-api" }));
 
 export default app;
 export const handler = handle(app);
+
+// Local dev server
+if (!process.env.AWS_LAMBDA_FUNCTION_NAME) {
+  import("@hono/node-server").then(({ serve }) => {
+    const port = Number(process.env.PORT) || 8787;
+    serve({ fetch: app.fetch, port });
+    console.log(`API running on http://localhost:${port}`);
+  });
+}

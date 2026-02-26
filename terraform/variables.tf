@@ -89,3 +89,15 @@ variable "agentcore_image_tag" {
   type        = string
   default     = "latest"
 }
+
+variable "oidc_discovery_url" {
+  description = "OIDC discovery URL for the customer's auth provider (used for AgentCore JWT validation). When set, replaces the default Cognito-based authorizer."
+  type        = string
+  default     = ""
+}
+
+variable "oidc_allowed_audience" {
+  description = "Allowed audience for OIDC JWT validation (typically the client ID from the auth provider)"
+  type        = string
+  default     = ""
+}

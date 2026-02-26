@@ -407,10 +407,13 @@ resource "aws_bedrockagentcore_agent_runtime" "main" {
     server_protocol = "HTTP"
   }
 
-  authorizer_configuration {
-    custom_jwt_authorizer {
-      discovery_url    = "https://cognito-idp.${var.aws_region}.amazonaws.com/${aws_cognito_user_pool.main.id}/.well-known/openid-configuration"
-      allowed_audience = [aws_cognito_user_pool_client.dashboard.id]
+  dynamic "authorizer_configuration" {
+    for_each = var.oidc_discovery_url != "" ? [1] : []
+    content {
+      custom_jwt_authorizer {
+        discovery_url    = var.oidc_discovery_url
+        allowed_audience = [var.oidc_allowed_audience]
+      }
     }
   }
 

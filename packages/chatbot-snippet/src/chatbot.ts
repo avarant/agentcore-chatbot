@@ -356,8 +356,17 @@ import type { ChatbotConfig, ChatMessage } from "./types";
           botEl.textContent = accumulated;
           messagesEl.scrollTop = messagesEl.scrollHeight;
         });
+        // Try to extract response from JSON
+        let finalText = accumulated;
+        try {
+          const parsed = JSON.parse(accumulated);
+          finalText = parsed.response || parsed.body || accumulated;
+        } catch {
+          // Not JSON — use raw text
+        }
+        botEl.textContent = finalText;
         // Update stored message content
-        messages[messages.length - 1].content = accumulated;
+        messages[messages.length - 1].content = finalText;
       } catch (err) {
         botEl.textContent = "Something went wrong. Please try again.";
         messages[messages.length - 1].content = botEl.textContent;

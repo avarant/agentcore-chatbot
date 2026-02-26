@@ -5,8 +5,8 @@ export type Env = {
     COGNITO_CLIENT_ID: string;
     COGNITO_DOMAIN: string;
     DASHBOARD_URL: string;
-    AGENTCORE_ENDPOINT_ARN: string;
-    AGENTCORE_RUNTIME_ID: string;
+    AGENTCORE_RUNTIME_URL: string;
+    AGENTCORE_MEMORY_ID: string;
   };
   Variables: {
     userId: string;

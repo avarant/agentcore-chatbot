@@ -2,6 +2,11 @@
 
 import { createContext, useContext } from "react";
 
+export type User = {
+  sub: string;
+  email: string;
+};
+
 export type Customer = {
   id: string;
   user_id: string;
@@ -23,6 +28,7 @@ export type McpConfig = {
 };
 
 type CustomerContextType = {
+  user: User | null;
   customer: Customer | null;
   mcpConfig: McpConfig | null;
   runtimeUrl: string | null;
@@ -30,6 +36,7 @@ type CustomerContextType = {
 };
 
 export const CustomerContext = createContext<CustomerContextType>({
+  user: null,
   customer: null,
   mcpConfig: null,
   runtimeUrl: null,

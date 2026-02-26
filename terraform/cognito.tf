@@ -67,12 +67,12 @@ resource "aws_cognito_user_pool_client" "dashboard" {
 
   callback_urls = [
     local.cognito_callback_url,
-    "http://localhost:3000/auth/callback", # Local dev
+    "http://localhost:3000/api/auth/callback",
   ]
 
   logout_urls = [
     local.cognito_logout_url,
-    "http://localhost:3000/auth/logout",
+    "http://localhost:3000",
   ]
 
   explicit_auth_flows = [

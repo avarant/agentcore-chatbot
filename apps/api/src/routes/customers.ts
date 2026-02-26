@@ -99,12 +99,17 @@ customerRoutes.get("/snippet", async (c) => {
     return c.json({ error: "Runtime not configured" }, 400);
   }
 
+  const dashboardUrl = process.env.DASHBOARD_URL?.replace(/\/dashboard$/, "") || "";
+  const tokenUrlAttr = customer.domain
+    ? `\n  s.setAttribute('data-token-url', 'https://${customer.domain}/api/chatbot-token');`
+    : "";
+
   const snippet = `<!-- Agent77 Chat Widget -->
 <script>
 (function() {
   var s = document.createElement('script');
-  s.src = '${process.env.DASHBOARD_URL?.replace(/\/dashboard$/, "")}/widget.js';
-  s.setAttribute('data-runtime-url', '${runtimeUrl}');
+  s.src = '${dashboardUrl}/widget.js';
+  s.setAttribute('data-runtime-url', '${runtimeUrl}');${tokenUrlAttr}
   s.async = true;
   document.head.appendChild(s);
 })();

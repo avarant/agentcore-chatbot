@@ -1,0 +1,1 @@
+Start the Next.js frontend dev server locally on port 3000. Run `./scripts/setup-local-env.sh` first if `.env.local` doesn't exist in `apps/web/`, then start the server with `cd apps/web && pnpm dev`. Keep it running in the background.

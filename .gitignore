@@ -7,12 +7,13 @@ dist
 out/
 
 # Terraform
-terraform/.terraform/
-terraform/.terraform.lock.hcl
-terraform/terraform.tfstate
-terraform/terraform.tfstate.backup
-terraform/tfplan
-terraform/*.tfplan
+**/.terraform/
+**/.terraform.lock.hcl
+**/terraform.tfstate
+**/terraform.tfstate.backup
+**/tfplan
+**/*.tfplan
+**/terraform.tfvars
 terraform/agentcore_endpoint_url.txt
 
 # Build artifacts
@@ -24,4 +25,8 @@ agent/__pycache__/
 apps/api/dist/lambda.zip
 
 # Lock files (pnpm only — ignore npm)
-apps/api/package-lock.json
+**/package-lock.json
+
+# Demo build artifacts
+demo/api/dist/
+demo/api/node_modules/

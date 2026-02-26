@@ -1,0 +1,1 @@
+Start the API dev server locally on port 8787. Run `./scripts/setup-local-env.sh` first if `.env.local` doesn't exist in `apps/api/`, then start the server with `cd apps/api && pnpm dev`. Keep it running in the background.
