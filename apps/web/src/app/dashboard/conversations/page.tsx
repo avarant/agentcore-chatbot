@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Badge } from "@/components/ui/badge";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
@@ -14,36 +13,89 @@ type HistoryMessage = { role: string; content: string; timestamp: string };
 export default function ConversationsPage() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [selectedSession, setSelectedSession] = useState<string | null>(null);
   const [historyMessages, setHistoryMessages] = useState<HistoryMessage[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const isInitialLoad = useRef(true);
 
-  async function loadSessions() {
-    setSessionsLoading(true);
+  const fetchSessions = useCallback(async (cursor?: string) => {
+    const isFirstPage = !cursor;
+    if (isFirstPage) {
+      setSessionsLoading(true);
+    } else {
+      setLoadingMore(true);
+    }
+
     try {
-      const res = await fetch(`${API_URL}/api/conversations`, {
+      const params = new URLSearchParams({ limit: "20" });
+      if (cursor) params.set("cursor", cursor);
+
+      const res = await fetch(`${API_URL}/api/conversations?${params}`, {
         credentials: "include",
       });
       if (res.ok) {
         const data = await res.json();
-        const loaded: Session[] = data.sessions || [];
-        setSessions(loaded);
-        // Auto-select the most recent session
-        if (loaded.length > 0) {
-          loadSessionMessages(loaded[0].session_id);
+        const loaded: Session[] = (data.sessions || []).sort(
+          (a: Session, b: Session) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+        setNextCursor(data.nextCursor || null);
+
+        if (isFirstPage) {
+          setSessions(loaded);
+          // Auto-select first session only on initial load
+          if (isInitialLoad.current && loaded.length > 0) {
+            isInitialLoad.current = false;
+            loadSessionMessages(loaded[0].session_id);
+          }
+        } else {
+          setSessions((prev) => [...prev, ...loaded]);
         }
       }
     } catch {
       // ignore
     } finally {
-      setSessionsLoading(false);
+      if (isFirstPage) {
+        setSessionsLoading(false);
+      } else {
+        setLoadingMore(false);
+      }
     }
-  }
+  }, []);
 
   // Auto-load sessions on mount
   useEffect(() => {
-    loadSessions();
-  }, []);
+    fetchSessions();
+  }, [fetchSessions]);
+
+  // IntersectionObserver for infinite scroll
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && nextCursor && !loadingMore && !sessionsLoading) {
+          fetchSessions(nextCursor);
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [nextCursor, loadingMore, sessionsLoading, fetchSessions]);
+
+  function handleRefresh() {
+    isInitialLoad.current = true;
+    setNextCursor(null);
+    setSelectedSession(null);
+    setHistoryMessages([]);
+    fetchSessions();
+  }
 
   async function loadSessionMessages(sessionId: string) {
     setSelectedSession(sessionId);
@@ -70,7 +122,7 @@ export default function ConversationsPage() {
         <Button
           variant="outline"
           size="sm"
-          onClick={loadSessions}
+          onClick={handleRefresh}
           disabled={sessionsLoading}
         >
           <RefreshCw className={`size-3.5 ${sessionsLoading ? "animate-spin" : ""}`} />
@@ -87,23 +139,34 @@ export default function ConversationsPage() {
       ) : (
         <div className="flex gap-6">
           {/* Session list */}
-          <div className="w-56 shrink-0 space-y-1">
-            {sessions.map((s) => (
-              <button
-                key={s.session_id}
-                onClick={() => loadSessionMessages(s.session_id)}
-                className={`w-full rounded-md px-3 py-2 text-left text-xs transition-colors ${
-                  selectedSession === s.session_id
-                    ? "bg-secondary text-secondary-foreground font-medium"
-                    : "text-muted-foreground hover:bg-accent"
-                }`}
-              >
-                <div className="font-mono">{new Date(s.created_at).toLocaleDateString()}</div>
-                <div className="font-mono text-[10px] opacity-60">
-                  {new Date(s.created_at).toLocaleTimeString()}
-                </div>
-              </button>
-            ))}
+          <div className="w-56 shrink-0">
+            <ScrollArea className="h-[calc(100vh-12rem)]">
+              <div className="space-y-1 pr-3">
+                {sessions.map((s) => (
+                  <button
+                    key={s.session_id}
+                    onClick={() => loadSessionMessages(s.session_id)}
+                    className={`w-full rounded-md px-3 py-2 text-left text-xs transition-colors ${
+                      selectedSession === s.session_id
+                        ? "bg-secondary text-secondary-foreground font-medium"
+                        : "text-muted-foreground hover:bg-accent"
+                    }`}
+                  >
+                    <div className="font-mono">{new Date(s.created_at).toLocaleDateString()}</div>
+                    <div className="font-mono text-[10px] opacity-60">
+                      {new Date(s.created_at).toLocaleTimeString()}
+                    </div>
+                  </button>
+                ))}
+                {/* Sentinel for infinite scroll */}
+                <div ref={sentinelRef} className="h-1" />
+                {loadingMore && (
+                  <div className="flex justify-center py-2">
+                    <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                  </div>
+                )}
+              </div>
+            </ScrollArea>
           </div>
 
           {/* Messages */}

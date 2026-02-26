@@ -20,12 +20,15 @@ function sanitizeActorId(email: string): string {
   return email.replace(/[^a-zA-Z0-9-_/]/g, "_");
 }
 
-// List all sessions for the current user
+// List sessions for the current user (paginated, sorted by most recent)
 conversationRoutes.get("/", async (c) => {
   const memoryId = process.env.AGENTCORE_MEMORY_ID;
   if (!memoryId) {
     return c.json({ error: "Memory not configured" }, 503);
   }
+
+  const limit = Math.min(Math.max(parseInt(c.req.query("limit") || "20", 10) || 20, 1), 100);
+  const cursor = c.req.query("cursor") || undefined;
 
   const actorId = sanitizeActorId(c.get("email") || "anonymous");
 
@@ -34,11 +37,17 @@ conversationRoutes.get("/", async (c) => {
   if (actorId !== "anonymous") actorIds.push("anonymous");
 
   const allSessions: { session_id: string; actor_id: string; created_at: string }[] = [];
+  let nextCursor: string | null = null;
 
   for (const aid of actorIds) {
     try {
       const result = await client.send(
-        new ListSessionsCommand({ memoryId, actorId: aid })
+        new ListSessionsCommand({
+          memoryId,
+          actorId: aid,
+          maxResults: limit,
+          ...(cursor ? { nextToken: cursor } : {}),
+        })
       );
       for (const s of result.sessionSummaries || []) {
         allSessions.push({
@@ -47,12 +56,20 @@ conversationRoutes.get("/", async (c) => {
           created_at: s.createdAt?.toISOString() || "",
         });
       }
+      if (result.nextToken) {
+        nextCursor = result.nextToken;
+      }
     } catch {
       // actor not found or no sessions — skip
     }
   }
 
-  return c.json({ sessions: allSessions });
+  // Sort by created_at descending (most recent first)
+  allSessions.sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  );
+
+  return c.json({ sessions: allSessions, nextCursor });
 });
 
 // Get messages for a specific session
