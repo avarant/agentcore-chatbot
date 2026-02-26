@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CustomerContext, type Customer, type McpConfig, type User } from "./customer-context";
+import { CustomerContext, type Customer, type User } from "./customer-context";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Settings, MessageSquare, LogOut, Bot } from "lucide-react";
@@ -27,8 +27,6 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const [user, setUser] = useState<User | null>(null);
   const [customer, setCustomer] = useState<Customer | null>(null);
-  const [mcpConfig, setMcpConfig] = useState<McpConfig | null>(null);
-  const [runtimeUrl, setRuntimeUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [showSignOut, setShowSignOut] = useState(false);
 
@@ -40,8 +38,6 @@ export default function DashboardLayout({
       if (res.ok) {
         const data = await res.json();
         setCustomer(data.customer || null);
-        setMcpConfig(data.mcp_config || null);
-        setRuntimeUrl(data.runtime_url || null);
       }
     } catch {
       // ignore — customer may not exist yet
@@ -86,7 +82,7 @@ export default function DashboardLayout({
   }
 
   return (
-    <CustomerContext.Provider value={{ user, customer, mcpConfig, runtimeUrl, reload }}>
+    <CustomerContext.Provider value={{ user, customer, reload }}>
       <div className="flex min-h-screen">
         {/* Sidebar */}
         <aside className="fixed inset-y-0 left-0 z-40 flex w-60 flex-col border-r bg-card">
