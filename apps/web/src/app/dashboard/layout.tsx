@@ -145,7 +145,7 @@ export default function DashboardLayout({
 
         {/* Main content */}
         <main className="ml-60 flex-1 p-6 lg:p-8">
-          <div className="mx-auto max-w-6xl">{children}</div>
+          <div className="mx-auto max-w-screen-2xl">{children}</div>
         </main>
       </div>
     </CustomerContext.Provider>

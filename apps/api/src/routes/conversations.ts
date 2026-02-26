@@ -3,6 +3,7 @@ import {
   BedrockAgentCoreClient,
   ListSessionsCommand,
   ListEventsCommand,
+  ListMemoryRecordsCommand,
 } from "@aws-sdk/client-bedrock-agentcore";
 import type { Env } from "../types";
 import { authMiddleware } from "../lib/auth";
@@ -36,7 +37,7 @@ conversationRoutes.get("/", async (c) => {
   const actorIds = [actorId];
   if (actorId !== "anonymous") actorIds.push("anonymous");
 
-  const allSessions: { session_id: string; actor_id: string; created_at: string }[] = [];
+  const allSessions: { session_id: string; actor_id: string; created_at: string; summary: string | null }[] = [];
   let nextCursor: string | null = null;
 
   for (const aid of actorIds) {
@@ -54,6 +55,7 @@ conversationRoutes.get("/", async (c) => {
           session_id: s.sessionId || "",
           actor_id: s.actorId || aid,
           created_at: s.createdAt?.toISOString() || "",
+          summary: null,
         });
       }
       if (result.nextToken) {
@@ -62,6 +64,37 @@ conversationRoutes.get("/", async (c) => {
     } catch {
       // actor not found or no sessions — skip
     }
+  }
+
+  // Fetch summaries for each actor's sessions (namespace: /summaries/{actorId}/{sessionId})
+  const summaryMap = new Map<string, string>();
+  for (const aid of actorIds) {
+    try {
+      const records = await client.send(
+        new ListMemoryRecordsCommand({
+          memoryId,
+          namespace: `/summaries/${aid}/`,
+        })
+      );
+      for (const r of records.memoryRecordSummaries || []) {
+        // Extract sessionId from namespace like /summaries/{actorId}/{sessionId}
+        const ns = (r.namespaces || [])[0] || "";
+        const parts = ns.split("/");
+        const sid = parts[parts.length - 1];
+        if (sid && r.content?.text) {
+          // Strip XML tags (e.g. <topic name="...">) from summarization output
+          const cleaned = r.content.text.replace(/<[^>]+>/g, "").trim();
+          summaryMap.set(sid, cleaned);
+        }
+      }
+    } catch {
+      // summaries not available — skip
+    }
+  }
+
+  // Attach summaries to sessions
+  for (const s of allSessions) {
+    s.summary = summaryMap.get(s.session_id) || null;
   }
 
   // Sort by created_at descending (most recent first)

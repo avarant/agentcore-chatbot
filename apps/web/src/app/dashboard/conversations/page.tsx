@@ -4,10 +4,9 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { RefreshCw, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
-type Session = { session_id: string; created_at: string };
+type Session = { session_id: string; actor_id: string; created_at: string; summary: string | null };
 type HistoryMessage = { role: string; content: string; timestamp: string };
 
 export default function ConversationsPage() {
@@ -139,7 +138,7 @@ export default function ConversationsPage() {
       ) : (
         <div className="flex gap-6">
           {/* Session list */}
-          <div className="w-56 shrink-0">
+          <div className="w-72 shrink-0">
             <ScrollArea className="h-[calc(100vh-12rem)]">
               <div className="space-y-1 pr-3">
                 {sessions.map((s) => (
@@ -152,8 +151,14 @@ export default function ConversationsPage() {
                         : "text-muted-foreground hover:bg-accent"
                     }`}
                   >
-                    <div className="font-mono">{new Date(s.created_at).toLocaleDateString()}</div>
-                    <div className="font-mono text-[10px] opacity-60">
+                    <div className="truncate">{s.actor_id}</div>
+                    {s.summary && (
+                      <div className="mt-0.5 line-clamp-2 text-[11px] opacity-80">
+                        {s.summary}
+                      </div>
+                    )}
+                    <div className="mt-0.5 font-mono text-[10px] opacity-60">
+                      {new Date(s.created_at).toLocaleDateString()}{" "}
                       {new Date(s.created_at).toLocaleTimeString()}
                     </div>
                   </button>
