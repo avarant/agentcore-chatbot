@@ -51,6 +51,11 @@ apps/web/           Next.js frontend (static export)
 
 packages/chatbot-snippet/   Embeddable JS widget (IIFE, Shadow DOM)
 
+docs/
+  getting-started.md  Full setup walkthrough
+  authentication.md   OIDC/JWT auth setup
+  local-development.md  Local dev environment
+
 agent/
   main.py           Strands Agent entrypoint (BedrockAgentCoreApp)
   agent.py          Production agent (MCP client, Claude tool loop)
