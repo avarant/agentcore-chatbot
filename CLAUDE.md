@@ -5,14 +5,15 @@ Self-hosted AI chatbot platform on AWS. Lets site owners deploy an AI chat widge
 ## Architecture
 
 ```
-Main Stack (terraform/) — AgentCore only
+Main Stack (terraform/) — AgentCore + Widget CDN
 ├── ECR repository + CodeBuild (Docker image)
 ├── AgentCore Runtime (container-based agent)
-└── AgentCore Memory (conversation persistence)
+├── AgentCore Memory (conversation persistence)
+└── S3 + CloudFront ── widget.js CDN (CORS-enabled)
 
 Demo Stack (demo/terraform/) — Full dashboard + demo
 ├── Cognito ────────── User pool + OAuth client
-├── CloudFront + S3 ── Next.js static export + widget.js
+├── CloudFront + S3 ── Next.js static export
 ├── Lambda Function URL ── API (Hono, apps/api)
 └── /api/* ─────────── auth, token, conversations
 
@@ -59,8 +60,9 @@ agent/
 terraform/          AgentCore-only stack
   main.tf           Provider (aws ~>6.0, archive, null), backend, locals
   agentcore.tf      ECR + CodeBuild + AgentCore Runtime + Memory + IAM
+  widget.tf         S3 + CloudFront CDN for embeddable widget (CORS)
   variables.tf      Input variables (incl. oidc_discovery_url, oidc_allowed_audience)
-  outputs.tf        AgentCore URLs, resource IDs
+  outputs.tf        AgentCore URLs, resource IDs, widget CDN URL
   buildspec.yml     Docker build spec (ARM64)
   scripts/
     build-image.sh  Trigger CodeBuild, wait, verify ECR image
@@ -104,9 +106,9 @@ demo/terraform/     Full dashboard + demo stack
 # 1. Install
 pnpm install
 
-# 2. Deploy main stack (AgentCore only)
+# 2. Deploy main stack (AgentCore + widget CDN)
 cd terraform && terraform init && terraform apply
-# Outputs: agentcore_runtime_url, agentcore_memory_id
+# Outputs: agentcore_runtime_url, agentcore_memory_id, widget_url
 
 # 3. Build API
 cd apps/api && pnpm build
@@ -118,7 +120,7 @@ NEXT_PUBLIC_COGNITO_DOMAIN=<from demo terraform output: cognito_domain> \
 NEXT_PUBLIC_COGNITO_CLIENT_ID=<from demo terraform output: cognito_client_id> \
 NEXT_PUBLIC_AUTH_CALLBACK_URL=<demo_url>/api/auth/callback \
 NEXT_PUBLIC_RUNTIME_URL=<agentcore_runtime_url> \
-NEXT_PUBLIC_DASHBOARD_URL=<demo_url> \
+NEXT_PUBLIC_WIDGET_URL=<widget_url from main terraform output> \
 npx next build
 
 # 5. Build widget
@@ -129,7 +131,10 @@ cd demo/terraform && terraform init && terraform apply \
   -var='agentcore_runtime_url=<from main output>' \
   -var='agentcore_memory_id=<from main output>'
 
-# 7. Upload frontend + widget to demo S3
+# 7. Upload widget to CDN
+cd terraform && eval $(terraform output -raw deploy_widget_command)
+
+# 8. Upload frontend to demo S3
 cd demo/terraform && eval $(terraform output -raw deploy_frontend_command)
 ```
 
@@ -171,7 +176,7 @@ The widget calls AgentCore directly (no Lambda proxy):
 - AgentCore: container-based deploy (ECR + CodeBuild), Claude Sonnet 4.6
 - Auth: AgentCore validates JWTs via configurable OIDC (`oidc_discovery_url` variable)
 - Memory: conversation persistence across turns via AgentCore Memory
-- Widget: working, parses JSON responses from AgentCore
+- Widget: hosted on dedicated CDN (main stack), parses JSON responses from AgentCore
 - MCP integration: built but needs end-to-end testing with a real MCP server
 
 ## Conventions

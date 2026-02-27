@@ -31,3 +31,23 @@ output "codebuild_project_name" {
   description = "CodeBuild project name for agent image builds"
   value       = var.enable_agentcore ? aws_codebuild_project.agent[0].name : ""
 }
+
+output "widget_url" {
+  description = "Widget CDN URL"
+  value       = var.enable_agentcore ? "https://${aws_cloudfront_distribution.widget[0].domain_name}/widget.js" : ""
+}
+
+output "widget_bucket_name" {
+  description = "S3 bucket for widget assets"
+  value       = var.enable_agentcore ? aws_s3_bucket.widget[0].id : ""
+}
+
+output "widget_cloudfront_distribution_id" {
+  description = "CloudFront distribution ID for widget CDN"
+  value       = var.enable_agentcore ? aws_cloudfront_distribution.widget[0].id : ""
+}
+
+output "deploy_widget_command" {
+  description = "Command to deploy widget to S3 and invalidate CloudFront"
+  value       = var.enable_agentcore ? "aws s3 cp ./packages/chatbot-snippet/dist/chatbot.js s3://${aws_s3_bucket.widget[0].id}/widget.js --content-type 'application/javascript' && aws cloudfront create-invalidation --distribution-id ${aws_cloudfront_distribution.widget[0].id} --paths '/widget.js'" : ""
+}

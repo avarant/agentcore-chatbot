@@ -14,6 +14,7 @@ const CLIENT_ID = process.env.NEXT_PUBLIC_COGNITO_CLIENT_ID || "";
 const REDIRECT_URI = encodeURIComponent(process.env.NEXT_PUBLIC_AUTH_CALLBACK_URL || "");
 const LOGIN_URL = `${COGNITO_DOMAIN}/login?response_type=code&client_id=${CLIENT_ID}&redirect_uri=${REDIRECT_URI}&scope=${encodeURIComponent("openid email profile")}`;
 const RUNTIME_URL = process.env.NEXT_PUBLIC_RUNTIME_URL || "";
+const WIDGET_URL = process.env.NEXT_PUBLIC_WIDGET_URL || "";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Settings", icon: Settings },
@@ -64,13 +65,13 @@ export default function DashboardLayout({
 
   // Inject chatbot widget after auth succeeds
   useEffect(() => {
-    if (!user || !RUNTIME_URL) return;
+    if (!user || !RUNTIME_URL || !WIDGET_URL) return;
 
     const existing = document.querySelector('script[data-runtime-url]');
     if (existing) return;
 
     const script = document.createElement("script");
-    script.src = "/widget.js";
+    script.src = WIDGET_URL;
     script.dataset.tokenUrl = "/api/auth/token";
     script.dataset.runtimeUrl = RUNTIME_URL;
     script.async = true;

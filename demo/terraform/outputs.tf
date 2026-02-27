@@ -58,7 +58,7 @@ output "runtime_url" {
 
 output "deploy_frontend_command" {
   description = "Command to deploy frontend assets to S3 and invalidate CloudFront"
-  value       = "aws s3 sync ./apps/web/out s3://${aws_s3_bucket.demo.id} --delete && aws s3 cp ./packages/chatbot-snippet/dist/chatbot.js s3://${aws_s3_bucket.demo.id}/widget.js --content-type 'application/javascript' && aws cloudfront create-invalidation --distribution-id ${aws_cloudfront_distribution.demo.id} --paths '/*'"
+  value       = "aws s3 sync ./apps/web/out s3://${aws_s3_bucket.demo.id} --delete && aws cloudfront create-invalidation --distribution-id ${aws_cloudfront_distribution.demo.id} --paths '/*'"
 }
 
 output "deploy_lambda_command" {

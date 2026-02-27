@@ -15,17 +15,17 @@ import {
 } from "lucide-react";
 
 const RUNTIME_URL = process.env.NEXT_PUBLIC_RUNTIME_URL || "";
-const DASHBOARD_URL = process.env.NEXT_PUBLIC_DASHBOARD_URL || "";
+const WIDGET_URL = process.env.NEXT_PUBLIC_WIDGET_URL || "";
 
 export default function DashboardPage() {
   const [copied, setCopied] = useState(false);
 
-  const snippet = RUNTIME_URL
+  const snippet = RUNTIME_URL && WIDGET_URL
     ? `<!-- Agent77 Chat Widget -->
 <script>
 (function() {
   var s = document.createElement('script');
-  s.src = '${DASHBOARD_URL}/widget.js';
+  s.src = '${WIDGET_URL}';
   s.setAttribute('data-runtime-url', '${RUNTIME_URL}');
   s.setAttribute('data-token-url', 'YOUR_TOKEN_ENDPOINT');
   s.async = true;
