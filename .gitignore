@@ -5,6 +5,7 @@ dist
 .env*
 .DS_Store
 out/
+**/tsconfig.tsbuildinfo
 
 # Terraform
 **/.terraform/
@@ -14,7 +15,6 @@ out/
 **/tfplan
 **/*.tfplan
 **/terraform.tfvars
-terraform/agentcore_endpoint_url.txt
 
 # Build artifacts
 agent-source.zip
@@ -26,7 +26,3 @@ apps/api/dist/lambda.zip
 
 # Lock files (pnpm only — ignore npm)
 **/package-lock.json
-
-# Demo build artifacts
-demo/api/dist/
-demo/api/node_modules/
