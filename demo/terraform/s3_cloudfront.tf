@@ -1,9 +1,9 @@
 ###############################################################################
-# Demo App — s3_cloudfront.tf — S3 + CloudFront for static site + Lambda URL
+# Demo App — s3_cloudfront.tf — S3 + CloudFront for dashboard + Lambda URL
 ###############################################################################
 
 # ---------------------------------------------------------------------------
-# S3 Bucket — static assets (index.html)
+# S3 Bucket — static assets (Next.js export + widget)
 # ---------------------------------------------------------------------------
 
 resource "aws_s3_bucket" "demo" {
@@ -45,24 +45,6 @@ resource "aws_s3_bucket_policy" "demo" {
       }
     ]
   })
-}
-
-# ---------------------------------------------------------------------------
-# Upload index.html to S3
-# ---------------------------------------------------------------------------
-
-resource "aws_s3_object" "index_html" {
-  bucket       = aws_s3_bucket.demo.id
-  key          = "index.html"
-  content      = templatefile("${path.module}/../app/index.html", {
-    runtime_url = var.agentcore_runtime_url
-    widget_url  = var.widget_url
-  })
-  content_type = "text/html"
-  etag         = md5(templatefile("${path.module}/../app/index.html", {
-    runtime_url = var.agentcore_runtime_url
-    widget_url  = var.widget_url
-  }))
 }
 
 # ---------------------------------------------------------------------------
@@ -137,6 +119,27 @@ resource "aws_cloudfront_distribution" "demo" {
     min_ttl     = 0
     default_ttl = 3600
     max_ttl     = 86400
+
+    # SPA: rewrite non-file paths to .html (e.g. /dashboard -> /dashboard.html)
+    function_association {
+      event_type   = "viewer-request"
+      function_arn = aws_cloudfront_function.spa_rewrite.arn
+    }
+  }
+
+  # SPA routing: return index.html for 403/404 from S3
+  custom_error_response {
+    error_code            = 403
+    response_code         = 200
+    response_page_path    = "/index.html"
+    error_caching_min_ttl = 10
+  }
+
+  custom_error_response {
+    error_code            = 404
+    response_code         = 200
+    response_page_path    = "/index.html"
+    error_caching_min_ttl = 10
   }
 
   restrictions {
@@ -152,4 +155,42 @@ resource "aws_cloudfront_distribution" "demo" {
   tags = {
     Name = "${local.name_prefix}-distribution"
   }
+}
+
+# ---------------------------------------------------------------------------
+# CloudFront Function — SPA rewrite (serves .html for non-file paths)
+# ---------------------------------------------------------------------------
+
+resource "aws_cloudfront_function" "spa_rewrite" {
+  name    = "${replace(local.name_prefix, "-", "_")}_spa_rewrite"
+  runtime = "cloudfront-js-2.0"
+  comment = "Rewrite non-file requests to .html for SPA routing"
+  publish = true
+
+  code = <<-JS
+    function handler(event) {
+      var request = event.request;
+      var uri = request.uri;
+
+      // If the URI has a file extension, serve it as-is
+      if (uri.includes('.')) {
+        return request;
+      }
+
+      // If the URI starts with /api, pass through (handled by ordered behavior)
+      if (uri.startsWith('/api')) {
+        return request;
+      }
+
+      // Append .html for static pages (e.g. /dashboard -> /dashboard.html)
+      // If the .html file doesn't exist, S3 returns 404 which CloudFront
+      // custom_error_response maps to /index.html (SPA fallback)
+      if (uri === '/') {
+        request.uri = '/index.html';
+      } else {
+        request.uri = uri + '.html';
+      }
+      return request;
+    }
+  JS
 }

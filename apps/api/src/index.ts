@@ -3,7 +3,6 @@ import { cors } from "hono/cors";
 import { handle } from "hono/aws-lambda";
 import type { Env } from "./types";
 import { authRoutes } from "./routes/auth";
-import { customerRoutes } from "./routes/customers";
 import { conversationRoutes } from "./routes/conversations";
 
 const app = new Hono<Env>();
@@ -17,7 +16,6 @@ app.use(
 );
 
 app.route("/api/auth", authRoutes);
-app.route("/api/customers", customerRoutes);
 app.route("/api/conversations", conversationRoutes);
 
 app.get("/", (c) => c.json({ status: "ok", service: "agent77-api" }));

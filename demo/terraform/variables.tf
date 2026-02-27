@@ -21,11 +21,11 @@ variable "domain" {
 }
 
 variable "agentcore_runtime_url" {
-  description = "AgentCore runtime invoke URL from the main stack (baked into index.html)"
+  description = "AgentCore runtime invoke URL from the main stack"
   type        = string
 }
 
-variable "widget_url" {
-  description = "URL of the chatbot widget JS (e.g. https://demo.agent77.app/widget.js)"
+variable "agentcore_memory_id" {
+  description = "AgentCore Memory ID from the main stack (for conversation history API)"
   type        = string
 }

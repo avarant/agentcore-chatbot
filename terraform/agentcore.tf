@@ -363,21 +363,6 @@ resource "aws_iam_role_policy" "agentcore_runtime" {
         ]
         Resource = "*"
       },
-      {
-        Sid    = "DynamoDBAccess"
-        Effect = "Allow"
-        Action = [
-          "dynamodb:GetItem",
-          "dynamodb:PutItem",
-          "dynamodb:UpdateItem",
-          "dynamodb:DeleteItem",
-          "dynamodb:Query",
-        ]
-        Resource = [
-          aws_dynamodb_table.config.arn,
-          "${aws_dynamodb_table.config.arn}/index/*",
-        ]
-      }
     ]
   })
 }
@@ -419,7 +404,6 @@ resource "aws_bedrockagentcore_agent_runtime" "main" {
 
   environment_variables = {
     MODEL_ID            = var.agentcore_model_id
-    DYNAMODB_TABLE      = aws_dynamodb_table.config.name
     AWS_REGION_NAME     = var.aws_region
     AGENTCORE_MEMORY_ID = var.enable_agentcore ? aws_bedrockagentcore_memory.main[0].id : ""
   }

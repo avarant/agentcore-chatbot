@@ -1,5 +1,5 @@
 ###############################################################################
-# Agent77 — variables.tf
+# Agent77 — variables.tf (AgentCore-only)
 ###############################################################################
 
 variable "aws_region" {
@@ -25,47 +25,6 @@ variable "environment" {
   default     = "prod"
 }
 
-variable "domain" {
-  description = "Custom domain for CloudFront (leave empty to use the default CloudFront domain)"
-  type        = string
-  default     = ""
-}
-
-variable "admin_email" {
-  description = "Email address for the initial admin user (created in Cognito on first apply)"
-  type        = string
-}
-
-variable "admin_password" {
-  description = "Password for the initial admin user"
-  type        = string
-  sensitive   = true
-}
-
-variable "lambda_memory_size" {
-  description = "Memory (MB) for the API Lambda function"
-  type        = number
-  default     = 512
-}
-
-variable "lambda_timeout" {
-  description = "Timeout (seconds) for the API Lambda function"
-  type        = number
-  default     = 30
-}
-
-variable "dynamodb_billing_mode" {
-  description = "DynamoDB billing mode: PAY_PER_REQUEST or PROVISIONED"
-  type        = string
-  default     = "PAY_PER_REQUEST"
-}
-
-variable "cognito_domain_prefix" {
-  description = "Cognito hosted UI domain prefix. Defaults to project_name."
-  type        = string
-  default     = ""
-}
-
 variable "enable_agentcore" {
   description = "Whether to provision the AgentCore runtime and endpoint via AWS CLI"
   type        = bool
@@ -73,15 +32,9 @@ variable "enable_agentcore" {
 }
 
 variable "agentcore_model_id" {
-  description = "Foundation model ID for AgentCore runtime (e.g. anthropic.claude-3-sonnet-20240229-v1:0)"
+  description = "Foundation model ID for AgentCore runtime (e.g. anthropic.claude-sonnet-4-6)"
   type        = string
   default     = "anthropic.claude-sonnet-4-6"
-}
-
-variable "cloudfront_price_class" {
-  description = "CloudFront price class"
-  type        = string
-  default     = "PriceClass_100"
 }
 
 variable "agentcore_image_tag" {

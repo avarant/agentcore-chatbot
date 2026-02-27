@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CustomerContext, type Customer, type User } from "./customer-context";
+import { CustomerContext, type User } from "./customer-context";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Settings, MessageSquare, LogOut, Bot } from "lucide-react";
@@ -13,6 +13,7 @@ const COGNITO_DOMAIN = process.env.NEXT_PUBLIC_COGNITO_DOMAIN || "";
 const CLIENT_ID = process.env.NEXT_PUBLIC_COGNITO_CLIENT_ID || "";
 const REDIRECT_URI = encodeURIComponent(process.env.NEXT_PUBLIC_AUTH_CALLBACK_URL || "");
 const LOGIN_URL = `${COGNITO_DOMAIN}/login?response_type=code&client_id=${CLIENT_ID}&redirect_uri=${REDIRECT_URI}&scope=${encodeURIComponent("openid email profile")}`;
+const RUNTIME_URL = process.env.NEXT_PUBLIC_RUNTIME_URL || "";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Settings", icon: Settings },
@@ -26,27 +27,20 @@ export default function DashboardLayout({
 }) {
   const pathname = usePathname();
   const [user, setUser] = useState<User | null>(null);
-  const [customer, setCustomer] = useState<Customer | null>(null);
   const [loading, setLoading] = useState(true);
   const [showSignOut, setShowSignOut] = useState(false);
 
-  const loadCustomer = useCallback(async () => {
+  const reload = useCallback(async () => {
     try {
-      const res = await fetch(`${API_URL}/api/customers/me`, {
-        credentials: "include",
-      });
+      const res = await fetch(`${API_URL}/api/auth/me`, { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
-        setCustomer(data.customer || null);
+        setUser(data.user || null);
       }
     } catch {
-      // ignore — customer may not exist yet
+      // ignore
     }
   }, []);
-
-  const reload = useCallback(async () => {
-    await loadCustomer();
-  }, [loadCustomer]);
 
   useEffect(() => {
     fetch(`${API_URL}/api/auth/me`, { credentials: "include" })
@@ -57,17 +51,35 @@ export default function DashboardLayout({
         }
         return res.json();
       })
-      .then(async (data) => {
+      .then((data) => {
         if (data) {
           setUser(data.user || null);
-          await loadCustomer();
         }
         setLoading(false);
       })
       .catch(() => {
         window.location.href = LOGIN_URL;
       });
-  }, [loadCustomer]);
+  }, []);
+
+  // Inject chatbot widget after auth succeeds
+  useEffect(() => {
+    if (!user || !RUNTIME_URL) return;
+
+    const existing = document.querySelector('script[data-runtime-url]');
+    if (existing) return;
+
+    const script = document.createElement("script");
+    script.src = "/widget.js";
+    script.dataset.tokenUrl = "/api/auth/token";
+    script.dataset.runtimeUrl = RUNTIME_URL;
+    script.async = true;
+    document.head.appendChild(script);
+
+    return () => {
+      script.remove();
+    };
+  }, [user]);
 
   function handleLogout() {
     window.location.href = `${API_URL}/api/auth/logout`;
@@ -82,7 +94,7 @@ export default function DashboardLayout({
   }
 
   return (
-    <CustomerContext.Provider value={{ user, customer, reload }}>
+    <CustomerContext.Provider value={{ user, reload }}>
       <div className="flex min-h-screen">
         {/* Sidebar */}
         <aside className="fixed inset-y-0 left-0 z-40 flex w-60 flex-col border-r bg-card">

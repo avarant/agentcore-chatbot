@@ -1,7 +1,6 @@
 import { Hono } from "hono";
 import type { Env } from "../types";
 import { validateJwt } from "../lib/auth";
-import { getCustomer, createCustomer } from "../db/queries";
 
 export const authRoutes = new Hono<Env>();
 
@@ -57,16 +56,6 @@ authRoutes.get("/callback", async (c) => {
     return c.json({ error: "Invalid ID token" }, 401);
   }
 
-  // Create customer record if it doesn't exist
-  const existing = await getCustomer();
-  if (!existing) {
-    await createCustomer({
-      id: crypto.randomUUID(),
-      user_id: payload.sub,
-      email: payload.email,
-    });
-  }
-
   // Set JWT cookie and redirect to dashboard
   const maxAge = tokens.expires_in || 3600;
   const redirectTo = dashboardUrl ? `${dashboardUrl}/dashboard` : "/dashboard";
@@ -95,7 +84,8 @@ authRoutes.get("/logout", async (c) => {
   });
 });
 
-authRoutes.get("/token", async (c) => {
+// Token endpoint — GET and POST (chatbot-snippet uses POST)
+function handleToken(c: any) {
   const cookie = c.req.header("Cookie");
   let token: string | undefined;
   if (cookie) {
@@ -106,7 +96,10 @@ authRoutes.get("/token", async (c) => {
     return c.json({ error: "Unauthorized" }, 401);
   }
   return c.json({ token });
-});
+}
+
+authRoutes.get("/token", handleToken);
+authRoutes.post("/token", handleToken);
 
 authRoutes.get("/me", async (c) => {
   let token: string | undefined;
@@ -140,13 +133,10 @@ authRoutes.get("/me", async (c) => {
     return c.json({ error: "Invalid token" }, 401);
   }
 
-  const customer = await getCustomer();
-
   return c.json({
     user: {
       sub: payload.sub,
       email: payload.email,
     },
-    customer: customer || null,
   });
 });
