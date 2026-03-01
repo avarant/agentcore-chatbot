@@ -6,11 +6,11 @@ import {
   ListMemoryRecordsCommand,
 } from "@aws-sdk/client-bedrock-agentcore";
 import type { Env } from "../types";
-import { authMiddleware } from "../lib/auth";
+import { dashboardAuth } from "../lib/auth";
 
 export const conversationRoutes = new Hono<Env>();
 
-conversationRoutes.use("*", authMiddleware);
+conversationRoutes.use("*", dashboardAuth);
 
 const client = new BedrockAgentCoreClient({
   region: process.env.AWS_REGION || "us-east-1",
@@ -31,11 +31,20 @@ conversationRoutes.get("/", async (c) => {
   const limit = Math.min(Math.max(parseInt(c.req.query("limit") || "20", 10) || 20, 1), 100);
   const cursor = c.req.query("cursor") || undefined;
 
-  const actorId = sanitizeActorId(c.get("email") || "anonymous");
-
-  // Try both the sanitized email and "anonymous" (legacy sessions)
-  const actorIds = [actorId];
-  if (actorId !== "anonymous") actorIds.push("anonymous");
+  // API key auth: require user_id query param
+  // Cognito auth: scope to authenticated user's email
+  let actorIds: string[];
+  if (c.get("authMode") === "api_key") {
+    const userId = c.req.query("user_id");
+    if (!userId) {
+      return c.json({ error: "user_id query parameter is required for API key auth" }, 400);
+    }
+    actorIds = [sanitizeActorId(userId)];
+  } else {
+    const actorId = sanitizeActorId(c.get("email") || "anonymous");
+    actorIds = [actorId];
+    if (actorId !== "anonymous") actorIds.push("anonymous");
+  }
 
   const allSessions: { session_id: string; actor_id: string; created_at: string; summary: string | null }[] = [];
   let nextCursor: string | null = null;
@@ -113,11 +122,21 @@ conversationRoutes.get("/:sessionId", async (c) => {
   }
 
   const sessionId = c.req.param("sessionId");
-  const actorId = sanitizeActorId(c.get("email") || "anonymous");
 
-  // Try both sanitized email and "anonymous" as actor
-  const actorIds = [actorId];
-  if (actorId !== "anonymous") actorIds.push("anonymous");
+  // API key auth: require user_id query param
+  // Cognito auth: scope to authenticated user's email
+  let actorIds: string[];
+  if (c.get("authMode") === "api_key") {
+    const userId = c.req.query("user_id");
+    if (!userId) {
+      return c.json({ error: "user_id query parameter is required for API key auth" }, 400);
+    }
+    actorIds = [sanitizeActorId(userId)];
+  } else {
+    const actorId = sanitizeActorId(c.get("email") || "anonymous");
+    actorIds = [actorId];
+    if (actorId !== "anonymous") actorIds.push("anonymous");
+  }
 
   const messages: { role: string; content: string; timestamp: string }[] = [];
 

@@ -5,11 +5,13 @@ Self-hosted AI chatbot platform on AWS. Lets site owners deploy an AI chat widge
 ## Architecture
 
 ```
-Main Stack (terraform/) — AgentCore + Widget CDN
+Main Stack (terraform/) — AgentCore + Widget CDN + optional Dashboard
 ├── ECR repository + CodeBuild (Docker image)
 ├── AgentCore Runtime (container-based agent)
 ├── AgentCore Memory (conversation persistence)
-└── S3 + CloudFront ── widget.js CDN (CORS-enabled)
+├── S3 + CloudFront ── widget.js CDN (CORS-enabled)
+├── [optional] Lambda Function URL ── Dashboard API (Hono, apps/api)
+└── [optional] Cognito + S3 + CloudFront ── Dashboard UI
 
 Demo Stack (demo/terraform/) — Full dashboard + demo
 ├── Cognito ────────── User pool + OAuth client
@@ -26,7 +28,7 @@ AgentCore Runtime (container on ECR)
 
 - **Frontend**: Next.js 15, React 19, TailwindCSS 4 — static export to S3
 - **API**: Hono on Lambda (Node.js 20) via Lambda Function URL behind CloudFront
-- **Auth**: Cognito (demo stack), customer's own JWT/OIDC (end-user chat via `oidc_discovery_url`)
+- **Auth**: Cognito (demo/dashboard UI), API key (programmatic), customer's own JWT/OIDC (end-user chat via `oidc_discovery_url`)
 - **Agent**: Python 3.11 container on AWS Bedrock AgentCore Runtime
 - **Model**: Claude via Bedrock (`anthropic.claude-sonnet-4-6`)
 - **IaC**: Terraform (~> 6.0 AWS provider)
@@ -37,10 +39,11 @@ AgentCore Runtime (container on ECR)
 ```
 apps/api/           Lambda API (Hono)
   src/routes/
-    auth.ts         Cognito OAuth callback, /me, /token (GET+POST) endpoints
-    conversations.ts  Conversation history (list sessions, view messages)
+    auth.ts         Cognito OAuth callback, /me, /token (GET+POST) — guarded when Cognito not configured
+    conversations.ts  Conversation history (list sessions, view messages) — supports API key + Cognito auth
   src/lib/
-    auth.ts         JWT validation via Cognito JWKS
+    auth.ts         dashboardAuth middleware (API key → Cognito JWT fallback), validateJwt
+  src/types.ts      Env type (optional Cognito bindings, authMode variable)
 
 apps/web/           Next.js frontend (static export)
   src/app/
@@ -62,12 +65,14 @@ agent/
   Dockerfile        Python 3.11-slim, opentelemetry, non-root user
   requirements.txt  strands-agents, boto3, bedrock-agentcore
 
-terraform/          AgentCore-only stack
+terraform/          Main stack (AgentCore + optional dashboard)
   main.tf           Provider (aws ~>6.0, archive, null), backend, locals
   agentcore.tf      ECR + CodeBuild + AgentCore Runtime + Memory + IAM
   widget.tf         S3 + CloudFront CDN for embeddable widget (CORS)
-  variables.tf      Input variables (incl. oidc_discovery_url, oidc_allowed_audience)
-  outputs.tf        AgentCore URLs, resource IDs, widget CDN URL
+  dashboard.tf      [optional] Lambda API + Function URL (gated on enable_dashboard)
+  dashboard_ui.tf   [optional] Cognito + S3 + CloudFront (gated on enable_dashboard_ui)
+  variables.tf      Input variables (incl. dashboard, oidc vars)
+  outputs.tf        AgentCore URLs, resource IDs, widget CDN URL, dashboard outputs
   buildspec.yml     Docker build spec (ARM64)
   scripts/
     build-image.sh  Trigger CodeBuild, wait, verify ECR image
@@ -95,6 +100,10 @@ demo/terraform/     Full dashboard + demo stack
 | `agentcore_image_tag` | `latest` | Docker image tag |
 | `oidc_discovery_url` | `""` | OIDC discovery URL for AgentCore JWT validation |
 | `oidc_allowed_audience` | `""` | Allowed audience (client ID) for OIDC validation |
+| `enable_dashboard` | `false` | Provision dashboard API (Lambda + Function URL) |
+| `enable_dashboard_ui` | `false` | Provision dashboard UI (Cognito + S3 + CloudFront), requires `enable_dashboard` |
+| `dashboard_api_key` | `""` | API key for `X-API-Key` header auth (sensitive) |
+| `dashboard_domain` | `""` | Custom domain for dashboard CloudFront |
 
 ### Demo stack (demo/terraform/)
 
@@ -141,14 +150,32 @@ cd terraform && eval $(terraform output -raw deploy_widget_command)
 
 # 8. Upload frontend to demo S3
 cd demo/terraform && eval $(terraform output -raw deploy_frontend_command)
+
+# --- Optional: Deploy dashboard in main stack ---
+
+# 9. Enable dashboard API only (API key access)
+cd terraform && terraform apply \
+  -var='enable_dashboard=true' \
+  -var='dashboard_api_key=<your-secret-key>'
+# Access: curl -H 'X-API-Key: <key>' <dashboard_api_url>/api/conversations?user_id=<email>
+
+# 10. Enable dashboard UI (adds Cognito + S3 + CloudFront)
+cd terraform && terraform apply \
+  -var='enable_dashboard=true' \
+  -var='enable_dashboard_ui=true' \
+  -var='dashboard_api_key=<your-secret-key>'
+# Upload frontend: eval $(terraform output -raw deploy_dashboard_frontend_command)
 ```
 
 Agent container is built/deployed automatically by Terraform via CodeBuild.
 
 ## Auth Flows
 
-**Dashboard (demo Cognito):**
+**Dashboard (Cognito — demo or main stack UI):**
 User → /login → Cognito hosted UI → /api/auth/callback → httpOnly cookie → /dashboard (widget auto-loads)
+
+**Dashboard API (API key):**
+Client → `X-API-Key` header → Lambda validates against `DASHBOARD_API_KEY` env var → conversations (requires `user_id` query param)
 
 **End-user chat (widget on customer site):**
 Widget → customer's token endpoint → JWT → AgentCore Runtime (validates via `oidc_discovery_url`) → `agent.py` → MCP tools + Claude loop → response
@@ -178,6 +205,7 @@ The widget calls AgentCore directly (no Lambda proxy):
 
 - Infrastructure: fully deployed, working
 - Dashboard: functional (login, live widget demo, snippet generation, conversation history)
+- Dashboard in main stack: optional, API key + Cognito auth, independently toggleable UI
 - AgentCore: container-based deploy (ECR + CodeBuild), Claude Sonnet 4.6
 - Auth: AgentCore validates JWTs via configurable OIDC (`oidc_discovery_url` variable)
 - Memory: conversation persistence across turns via AgentCore Memory
@@ -188,9 +216,13 @@ The widget calls AgentCore directly (no Lambda proxy):
 
 - Terraform resources use `local.name_prefix` (`var.project_name`) as prefix
 - `count = var.enable_agentcore ? 1 : 0` pattern for optional resources in main stack
-- Lambda env vars: `AGENTCORE_RUNTIME_URL` (direct HTTP URL), `AGENTCORE_MEMORY_ID`, `DASHBOARD_URL`
+- `count = local.enable_dashboard` / `local.enable_dashboard_ui` for dashboard resources
+- Lambda env vars: `AGENTCORE_RUNTIME_URL` (direct HTTP URL), `AGENTCORE_MEMORY_ID`, `DASHBOARD_URL`, `DASHBOARD_API_KEY`
 - esbuild for all JS bundling (API + snippet), with `--external:@aws-sdk/*`
 - All API routes under `/api/*`, proxied by CloudFront to Lambda Function URL
 - AgentCore `authorizer_configuration` uses dynamic block — only added when `oidc_discovery_url` is set
+- Dashboard API auth: `dashboardAuth` middleware tries `X-API-Key` first, then Cognito JWT
+- Auth routes (`/callback`, `/logout`, `/me`) return 404 when Cognito not configured
+- CORS defaults to `"*"` when `DASHBOARD_URL` not set (API key access is server-to-server)
 - Demo Lambda derives `DASHBOARD_URL` from env var (set via null_resource after CloudFront deploys)
 - `.gitignore` uses `**` glob patterns for terraform files (covers both `terraform/` and `demo/terraform/`)

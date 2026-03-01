@@ -5,14 +5,18 @@ import { validateJwt } from "../lib/auth";
 export const authRoutes = new Hono<Env>();
 
 authRoutes.get("/callback", async (c) => {
+  const cognitoDomain = process.env.COGNITO_DOMAIN;
+  const clientId = process.env.COGNITO_CLIENT_ID;
+  if (!cognitoDomain || !clientId) {
+    return c.json({ error: "UI auth not configured" }, 404);
+  }
+
   const code = c.req.query("code");
 
   if (!code) {
     return c.json({ error: "Missing authorization code" }, 400);
   }
 
-  const cognitoDomain = process.env.COGNITO_DOMAIN!;
-  const clientId = process.env.COGNITO_CLIENT_ID!;
   const dashboardUrl = process.env.DASHBOARD_URL || "";
   const redirectUri = dashboardUrl ? `${dashboardUrl}/api/auth/callback` : "http://localhost:3000/auth/callback";
 
@@ -70,8 +74,12 @@ authRoutes.get("/callback", async (c) => {
 });
 
 authRoutes.get("/logout", async (c) => {
-  const cognitoDomain = process.env.COGNITO_DOMAIN!;
-  const clientId = process.env.COGNITO_CLIENT_ID!;
+  const cognitoDomain = process.env.COGNITO_DOMAIN;
+  const clientId = process.env.COGNITO_CLIENT_ID;
+  if (!cognitoDomain || !clientId) {
+    return c.json({ error: "UI auth not configured" }, 404);
+  }
+
   const dashboardUrl = process.env.DASHBOARD_URL || "";
   const logoutRedirect = encodeURIComponent(dashboardUrl || "http://localhost:3000");
 
@@ -102,6 +110,12 @@ authRoutes.get("/token", handleToken);
 authRoutes.post("/token", handleToken);
 
 authRoutes.get("/me", async (c) => {
+  const userPoolId = process.env.COGNITO_USER_POOL_ID;
+  const clientId = process.env.COGNITO_CLIENT_ID;
+  if (!userPoolId || !clientId) {
+    return c.json({ error: "UI auth not configured" }, 404);
+  }
+
   let token: string | undefined;
 
   const authHeader = c.req.header("Authorization");
@@ -121,12 +135,11 @@ authRoutes.get("/me", async (c) => {
     return c.json({ error: "Unauthorized" }, 401);
   }
 
-  const meUserPoolId = process.env.COGNITO_USER_POOL_ID!;
-  const meRegion = meUserPoolId.split("_")[0];
+  const region = userPoolId.split("_")[0];
   const payload = await validateJwt(token, {
-    userPoolId: meUserPoolId,
-    region: meRegion,
-    clientId: process.env.COGNITO_CLIENT_ID!,
+    userPoolId,
+    region,
+    clientId,
   });
 
   if (!payload) {

@@ -10,7 +10,7 @@ const app = new Hono<Env>();
 app.use(
   "*",
   cors({
-    origin: process.env.DASHBOARD_URL || "http://localhost:3000",
+    origin: process.env.DASHBOARD_URL || "*",
     credentials: true,
   })
 );

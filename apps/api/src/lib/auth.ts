@@ -111,7 +111,29 @@ export async function validateJwt(
   return payload;
 }
 
-export const authMiddleware = createMiddleware<Env>(async (c, next) => {
+export const dashboardAuth = createMiddleware<Env>(async (c, next) => {
+  // 1. Try API key auth first
+  const apiKey = c.req.header("X-API-Key");
+  const configuredApiKey = process.env.DASHBOARD_API_KEY;
+
+  if (apiKey) {
+    if (!configuredApiKey || apiKey !== configuredApiKey) {
+      return c.json({ error: "Invalid API key" }, 401);
+    }
+    c.set("authMode", "api_key");
+    c.set("userId", "api_key");
+    c.set("email", "");
+    return next();
+  }
+
+  // 2. Fall back to Cognito JWT auth
+  const userPoolId = process.env.COGNITO_USER_POOL_ID;
+  const clientId = process.env.COGNITO_CLIENT_ID;
+
+  if (!userPoolId || !clientId) {
+    return c.json({ error: "Unauthorized — use X-API-Key header" }, 401);
+  }
+
   let token: string | undefined;
 
   const authHeader = c.req.header("Authorization");
@@ -131,19 +153,22 @@ export const authMiddleware = createMiddleware<Env>(async (c, next) => {
     return c.json({ error: "Unauthorized" }, 401);
   }
 
-  const userPoolId = process.env.COGNITO_USER_POOL_ID!;
   const payload = await validateJwt(token, {
     userPoolId,
     region: userPoolId.split("_")[0],
-    clientId: process.env.COGNITO_CLIENT_ID!,
+    clientId,
   });
 
   if (!payload) {
     return c.json({ error: "Invalid token" }, 401);
   }
 
+  c.set("authMode", "cognito");
   c.set("userId", payload.sub);
   c.set("email", payload.email);
 
   await next();
 });
+
+// Backward compat alias
+export const authMiddleware = dashboardAuth;

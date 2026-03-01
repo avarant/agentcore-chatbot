@@ -54,3 +54,32 @@ variable "oidc_allowed_audience" {
   type        = string
   default     = ""
 }
+
+# ---------------------------------------------------------------------------
+# Dashboard (optional)
+# ---------------------------------------------------------------------------
+
+variable "enable_dashboard" {
+  description = "Provision the dashboard API (Lambda + Function URL) for conversation viewing"
+  type        = bool
+  default     = false
+}
+
+variable "enable_dashboard_ui" {
+  description = "Provision the dashboard UI (Cognito + S3 + CloudFront). Requires enable_dashboard = true."
+  type        = bool
+  default     = false
+}
+
+variable "dashboard_api_key" {
+  description = "API key for X-API-Key header authentication to the dashboard API"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "dashboard_domain" {
+  description = "Custom domain for the dashboard CloudFront distribution (optional)"
+  type        = string
+  default     = ""
+}
