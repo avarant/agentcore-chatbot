@@ -47,6 +47,16 @@ output "widget_cloudfront_distribution_id" {
   value       = var.enable_agentcore ? aws_cloudfront_distribution.widget[0].id : ""
 }
 
+output "agent_prompt_id" {
+  description = "Bedrock Prompt ID for the agent system prompt"
+  value       = var.enable_agentcore ? aws_bedrockagent_prompt.system[0].id : ""
+}
+
+output "agent_prompt_arn" {
+  description = "Bedrock Prompt ARN for the agent system prompt"
+  value       = var.enable_agentcore ? aws_bedrockagent_prompt.system[0].arn : ""
+}
+
 output "deploy_widget_command" {
   description = "Command to deploy widget to S3 and invalidate CloudFront"
   value       = var.enable_agentcore ? "aws s3 cp ./packages/chatbot-snippet/dist/chatbot.js s3://${aws_s3_bucket.widget[0].id}/widget.js --content-type 'application/javascript' && aws cloudfront create-invalidation --distribution-id ${aws_cloudfront_distribution.widget[0].id} --paths '/widget.js'" : ""

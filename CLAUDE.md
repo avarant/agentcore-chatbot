@@ -67,7 +67,7 @@ agent/
 
 terraform/          Main stack (AgentCore + optional dashboard)
   main.tf           Provider (aws ~>6.0, archive, null), backend, locals
-  agentcore.tf      ECR + CodeBuild + AgentCore Runtime + Memory + IAM
+  agentcore.tf      ECR + CodeBuild + AgentCore Runtime + Memory + Prompt + IAM
   widget.tf         S3 + CloudFront CDN for embeddable widget (CORS)
   dashboard.tf      [optional] Lambda API + Function URL (gated on enable_dashboard)
   dashboard_ui.tf   [optional] Cognito + S3 + CloudFront (gated on enable_dashboard_ui)
@@ -98,6 +98,7 @@ demo/terraform/     Full dashboard + demo stack
 | `agentcore_model_id` | `anthropic.claude-sonnet-4-6` | Bedrock model |
 | `enable_agentcore` | `true` | Provision AgentCore |
 | `agentcore_image_tag` | `latest` | Docker image tag |
+| `agent_system_prompt` | `"You are a helpful assistant..."` | System prompt managed via Bedrock Prompt Management |
 | `oidc_discovery_url` | `""` | OIDC discovery URL for AgentCore JWT validation |
 | `oidc_allowed_audience` | `""` | Allowed audience (client ID) for OIDC validation |
 | `enable_dashboard` | `false` | Provision dashboard API (Lambda + Function URL) |
@@ -206,7 +207,7 @@ The widget calls AgentCore directly (no Lambda proxy):
 - Infrastructure: fully deployed, working
 - Dashboard: functional (login, live widget demo, snippet generation, conversation history)
 - Dashboard in main stack: optional, API key + Cognito auth, independently toggleable UI
-- AgentCore: container-based deploy (ECR + CodeBuild), Claude Sonnet 4.6
+- AgentCore: container-based deploy (ECR + CodeBuild), Claude Sonnet 4.6, system prompt via Bedrock Prompt Management
 - Auth: AgentCore validates JWTs via configurable OIDC (`oidc_discovery_url` variable)
 - Memory: conversation persistence across turns via AgentCore Memory
 - Widget: hosted on dedicated CDN (main stack), parses JSON responses from AgentCore

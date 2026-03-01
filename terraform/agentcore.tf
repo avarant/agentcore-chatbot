@@ -347,6 +347,14 @@ resource "aws_iam_role_policy" "agentcore_runtime" {
         Resource = "*"
       },
       {
+        Sid    = "BedrockPromptRead"
+        Effect = "Allow"
+        Action = [
+          "bedrock:GetPrompt",
+        ]
+        Resource = "*"
+      },
+      {
         Sid    = "MarketplaceSubscription"
         Effect = "Allow"
         Action = [
@@ -406,6 +414,7 @@ resource "aws_bedrockagentcore_agent_runtime" "main" {
     MODEL_ID            = var.agentcore_model_id
     AWS_REGION_NAME     = var.aws_region
     AGENTCORE_MEMORY_ID = var.enable_agentcore ? aws_bedrockagentcore_memory.main[0].id : ""
+    PROMPT_ID           = var.enable_agentcore ? aws_bedrockagent_prompt.system[0].id : ""
   }
 
   depends_on = [
@@ -447,4 +456,34 @@ resource "aws_bedrockagentcore_memory_strategy" "summary" {
 locals {
   agentcore_runtime_id  = var.enable_agentcore ? aws_bedrockagentcore_agent_runtime.main[0].agent_runtime_id : ""
   agentcore_runtime_arn = var.enable_agentcore ? aws_bedrockagentcore_agent_runtime.main[0].agent_runtime_arn : ""
+}
+
+# ---------------------------------------------------------------------------
+# Bedrock Prompt Management — system prompt
+# ---------------------------------------------------------------------------
+
+resource "aws_bedrockagent_prompt" "system" {
+  count = var.enable_agentcore ? 1 : 0
+
+  name        = "${replace(local.name_prefix, "-", "_")}_system_prompt"
+  description = "Agent77 system prompt"
+
+  default_variant = "default"
+
+  variant {
+    name          = "default"
+    template_type = "TEXT"
+
+    model_id = var.agentcore_model_id
+
+    template_configuration {
+      text {
+        text = var.agent_system_prompt
+      }
+    }
+  }
+
+  tags = {
+    Name = "${local.name_prefix}-system-prompt"
+  }
 }

@@ -43,6 +43,12 @@ variable "agentcore_image_tag" {
   default     = "latest"
 }
 
+variable "agent_system_prompt" {
+  description = "System prompt for the agent, managed via Bedrock Prompt Management"
+  type        = string
+  default     = "You are a helpful assistant. Answer questions clearly and concisely."
+}
+
 variable "oidc_discovery_url" {
   description = "OIDC discovery URL for the customer's auth provider (used for AgentCore JWT validation). When set, replaces the default Cognito-based authorizer."
   type        = string
