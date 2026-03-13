@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { CustomerContext, type User } from "./customer-context";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Settings, MessageSquare, LogOut, Bot } from "lucide-react";
+import { Settings, MessageSquare, LogOut, Bot, FileText } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 const COGNITO_DOMAIN = process.env.NEXT_PUBLIC_COGNITO_DOMAIN || "";
@@ -19,6 +19,7 @@ const WIDGET_URL = process.env.NEXT_PUBLIC_WIDGET_URL || "";
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Settings", icon: Settings },
   { href: "/dashboard/conversations", label: "Conversations", icon: MessageSquare },
+  { href: "/dashboard/documents", label: "Documents", icon: FileText },
 ];
 
 export default function DashboardLayout({

@@ -371,6 +371,14 @@ resource "aws_iam_role_policy" "agentcore_runtime" {
         ]
         Resource = "*"
       },
+      {
+        Sid    = "BedrockRetrieve"
+        Effect = "Allow"
+        Action = [
+          "bedrock:Retrieve",
+        ]
+        Resource = var.enable_knowledge_base ? [aws_bedrockagent_knowledge_base.main[0].arn] : ["*"]
+      },
     ]
   })
 }
@@ -414,12 +422,17 @@ resource "aws_bedrockagentcore_agent_runtime" "main" {
     }
   }
 
-  environment_variables = {
-    MODEL_ID            = var.agentcore_model_id
-    AWS_REGION_NAME     = var.aws_region
-    AGENTCORE_MEMORY_ID = var.enable_agentcore ? aws_bedrockagentcore_memory.main[0].id : ""
-    PROMPT_ID           = var.enable_agentcore ? aws_bedrockagent_prompt.system[0].id : ""
-  }
+  environment_variables = merge(
+    {
+      MODEL_ID            = var.agentcore_model_id
+      AWS_REGION_NAME     = var.aws_region
+      AGENTCORE_MEMORY_ID = var.enable_agentcore ? aws_bedrockagentcore_memory.main[0].id : ""
+      PROMPT_ID           = var.enable_agentcore ? aws_bedrockagent_prompt.system[0].id : ""
+    },
+    var.enable_knowledge_base ? {
+      KNOWLEDGE_BASE_ID = aws_bedrockagent_knowledge_base.main[0].id
+    } : {}
+  )
 
   depends_on = [
     null_resource.trigger_build,

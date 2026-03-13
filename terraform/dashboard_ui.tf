@@ -63,7 +63,9 @@ resource "aws_cognito_user_pool_client" "dashboard" {
   allowed_oauth_scopes                 = ["email", "openid", "profile"]
   supported_identity_providers         = ["COGNITO"]
 
-  # Placeholder — updated by null_resource after CloudFront is created
+  # Placeholder — updated by terraform_data below after CloudFront is created.
+  # Direct reference to CloudFront here creates a cycle:
+  # Lambda → Lambda URL → CloudFront → Cognito client → Lambda (COGNITO_CLIENT_ID env var)
   callback_urls = ["https://localhost/api/auth/callback"]
   logout_urls   = ["https://localhost"]
 
@@ -77,22 +79,24 @@ resource "aws_cognito_user_pool_client" "dashboard" {
   }
 }
 
-# Update Cognito callback URLs after CloudFront domain is known
-resource "null_resource" "update_dashboard_cognito_urls" {
+# Update Cognito callback URLs after CloudFront domain is known.
+# This breaks the cycle described above — Cognito client ID is stable,
+# only the callback URLs need the CloudFront domain.
+resource "terraform_data" "update_dashboard_cognito_urls" {
   count = local.enable_dashboard_ui
 
-  triggers = {
-    cloudfront_domain = aws_cloudfront_distribution.dashboard[0].domain_name
-    client_id         = aws_cognito_user_pool_client.dashboard[0].id
-  }
+  triggers_replace = [
+    aws_cloudfront_distribution.dashboard[0].domain_name,
+    aws_cognito_user_pool_client.dashboard[0].id,
+  ]
 
   provisioner "local-exec" {
     command = <<-EOF
       aws cognito-idp update-user-pool-client \
         --user-pool-id ${aws_cognito_user_pool.dashboard[0].id} \
         --client-id ${aws_cognito_user_pool_client.dashboard[0].id} \
-        --callback-urls '["${local.dashboard_url}/api/auth/callback"]' \
-        --logout-urls '["${local.dashboard_url}"]' \
+        --callback-urls '["https://${aws_cloudfront_distribution.dashboard[0].domain_name}/api/auth/callback"]' \
+        --logout-urls '["https://${aws_cloudfront_distribution.dashboard[0].domain_name}"]' \
         --allowed-o-auth-flows code \
         --allowed-o-auth-scopes email openid profile \
         --supported-identity-providers COGNITO \
@@ -212,7 +216,7 @@ resource "aws_cloudfront_distribution" "dashboard" {
 
     forwarded_values {
       query_string = true
-      headers      = ["Authorization", "Origin", "X-API-Key"]
+      headers      = ["Authorization", "Origin", "X-API-Key", "X-Forwarded-Host"]
 
       cookies {
         forward = "all"
@@ -222,6 +226,11 @@ resource "aws_cloudfront_distribution" "dashboard" {
     min_ttl     = 0
     default_ttl = 0
     max_ttl     = 0
+
+    function_association {
+      event_type   = "viewer-request"
+      function_arn = aws_cloudfront_function.dashboard_api_host[0].arn
+    }
   }
 
   # Default — S3
@@ -278,6 +287,27 @@ resource "aws_cloudfront_distribution" "dashboard" {
   tags = {
     Name = "${local.name_prefix}-dashboard"
   }
+}
+
+# ---------------------------------------------------------------------------
+# CloudFront Function — Copy Host to X-Forwarded-Host for API routes
+# ---------------------------------------------------------------------------
+
+resource "aws_cloudfront_function" "dashboard_api_host" {
+  count = local.enable_dashboard_ui
+
+  name    = "${replace(local.name_prefix, "-", "_")}_dashboard_api_host"
+  runtime = "cloudfront-js-2.0"
+  comment = "Copy viewer Host to X-Forwarded-Host so Lambda can derive the dashboard URL"
+  publish = true
+
+  code = <<-JS
+    function handler(event) {
+      var request = event.request;
+      request.headers['x-forwarded-host'] = { value: request.headers.host.value };
+      return request;
+    }
+  JS
 }
 
 # ---------------------------------------------------------------------------

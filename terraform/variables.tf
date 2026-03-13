@@ -89,3 +89,13 @@ variable "dashboard_domain" {
   type        = string
   default     = ""
 }
+
+# ---------------------------------------------------------------------------
+# Knowledge Base (optional)
+# ---------------------------------------------------------------------------
+
+variable "enable_knowledge_base" {
+  description = "Provision Bedrock Knowledge Base with S3 Vectors for document retrieval"
+  type        = bool
+  default     = false
+}

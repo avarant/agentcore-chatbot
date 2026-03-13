@@ -4,10 +4,6 @@
 
 locals {
   enable_dashboard = var.enable_dashboard ? 1 : 0
-
-  dashboard_url = var.enable_dashboard && var.enable_dashboard_ui ? (
-    var.dashboard_domain != "" ? "https://${var.dashboard_domain}" : "https://${aws_cloudfront_distribution.dashboard[0].domain_name}"
-  ) : ""
 }
 
 # ---------------------------------------------------------------------------
@@ -87,6 +83,44 @@ resource "aws_iam_role_policy" "dashboard_lambda_memory" {
   })
 }
 
+resource "aws_iam_role_policy" "dashboard_lambda_kb" {
+  count = var.enable_dashboard && var.enable_knowledge_base ? 1 : 0
+
+  name = "${local.name_prefix}-dashboard-lambda-kb"
+  role = aws_iam_role.dashboard_lambda[0].id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "S3DocsAccess"
+        Effect = "Allow"
+        Action = [
+          "s3:PutObject",
+          "s3:GetObject",
+          "s3:ListBucket",
+          "s3:DeleteObject",
+        ]
+        Resource = [
+          aws_s3_bucket.kb_docs[0].arn,
+          "${aws_s3_bucket.kb_docs[0].arn}/*",
+        ]
+      },
+      {
+        Sid    = "BedrockKBIngestion"
+        Effect = "Allow"
+        Action = [
+          "bedrock:StartIngestionJob",
+          "bedrock:GetIngestionJob",
+        ]
+        Resource = [
+          aws_bedrockagent_knowledge_base.main[0].arn,
+        ]
+      }
+    ]
+  })
+}
+
 # ---------------------------------------------------------------------------
 # Lambda Function
 # ---------------------------------------------------------------------------
@@ -123,6 +157,11 @@ resource "aws_lambda_function" "dashboard" {
         COGNITO_USER_POOL_ID = aws_cognito_user_pool.dashboard[0].id
         COGNITO_CLIENT_ID    = aws_cognito_user_pool_client.dashboard[0].id
         COGNITO_DOMAIN       = "https://${aws_cognito_user_pool_domain.dashboard[0].domain}.auth.${var.aws_region}.amazoncognito.com"
+      } : {},
+      var.enable_knowledge_base ? {
+        KB_DOCS_BUCKET     = aws_s3_bucket.kb_docs[0].id
+        KNOWLEDGE_BASE_ID  = aws_bedrockagent_knowledge_base.main[0].id
+        KB_DATA_SOURCE_ID  = aws_bedrockagent_data_source.s3_docs[0].data_source_id
       } : {}
     )
   }
@@ -143,28 +182,4 @@ resource "aws_lambda_function_url" "dashboard" {
 
   function_name      = aws_lambda_function.dashboard[0].function_name
   authorization_type = "NONE"
-}
-
-# ---------------------------------------------------------------------------
-# Update DASHBOARD_URL env var after CloudFront domain is known (UI only)
-# ---------------------------------------------------------------------------
-
-resource "null_resource" "update_dashboard_lambda_env" {
-  count = var.enable_dashboard && var.enable_dashboard_ui ? 1 : 0
-
-  triggers = {
-    dashboard_url = local.dashboard_url
-    source_hash   = data.archive_file.dashboard_lambda[0].output_base64sha256
-  }
-
-  provisioner "local-exec" {
-    command = <<-EOF
-      aws lambda update-function-configuration \
-        --function-name ${aws_lambda_function.dashboard[0].function_name} \
-        --environment "Variables={COGNITO_USER_POOL_ID=${aws_cognito_user_pool.dashboard[0].id},COGNITO_CLIENT_ID=${aws_cognito_user_pool_client.dashboard[0].id},COGNITO_DOMAIN=https://${aws_cognito_user_pool_domain.dashboard[0].domain}.auth.${var.aws_region}.amazoncognito.com,AGENTCORE_RUNTIME_URL=https://bedrock-agentcore.${var.aws_region}.amazonaws.com/runtimes/${urlencode(aws_bedrockagentcore_agent_runtime.main[0].agent_runtime_arn)}/invocations,AGENTCORE_MEMORY_ID=${aws_bedrockagentcore_memory.main[0].id},AWS_REGION_NAME=${var.aws_region},DASHBOARD_API_KEY=${var.dashboard_api_key},DASHBOARD_URL=${local.dashboard_url}}" \
-        --region ${var.aws_region} > /dev/null
-    EOF
-  }
-
-  depends_on = [aws_cloudfront_distribution.dashboard, aws_lambda_function.dashboard]
 }

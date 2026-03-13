@@ -10,6 +10,7 @@ os.environ.setdefault("AWS_DEFAULT_REGION", REGION)
 
 import boto3
 from strands import Agent
+from strands_tools import retrieve
 from bedrock_agentcore.runtime import BedrockAgentCoreApp
 from bedrock_agentcore.memory.integrations.strands.config import AgentCoreMemoryConfig
 from bedrock_agentcore.memory.integrations.strands.session_manager import (
@@ -21,7 +22,8 @@ logger = logging.getLogger(__name__)
 app = BedrockAgentCoreApp()
 
 MEMORY_ID = os.environ.get("AGENTCORE_MEMORY_ID", "")
-DEFAULT_SYSTEM_PROMPT = "You are a helpful assistant. Answer questions clearly and concisely."
+KNOWLEDGE_BASE_ID = os.environ.get("KNOWLEDGE_BASE_ID", "")
+DEFAULT_SYSTEM_PROMPT = "You are a helpful assistant. Answer questions clearly and concisely. If a knowledge base is available, use the retrieve tool to search for relevant information from uploaded documents before answering questions."
 
 
 def _fetch_prompt() -> str:
@@ -108,6 +110,7 @@ async def invoke(payload=None, context=None):
                 agent = Agent(
                     system_prompt=SYSTEM_PROMPT,
                     name="Agent77",
+                    tools=[retrieve] if KNOWLEDGE_BASE_ID else [],
                     session_manager=session_manager,
                     callback_handler=None,
                 )
@@ -118,6 +121,7 @@ async def invoke(payload=None, context=None):
             agent = Agent(
                 system_prompt=SYSTEM_PROMPT,
                 name="Agent77",
+                tools=[retrieve] if KNOWLEDGE_BASE_ID else [],
                 callback_handler=None,
             )
             async for event in agent.stream_async(query):

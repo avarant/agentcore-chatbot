@@ -4,19 +4,21 @@ import { handle } from "hono/aws-lambda";
 import type { Env } from "./types";
 import { authRoutes } from "./routes/auth";
 import { conversationRoutes } from "./routes/conversations";
+import { documentRoutes } from "./routes/documents";
 
 const app = new Hono<Env>();
 
 app.use(
   "*",
   cors({
-    origin: process.env.DASHBOARD_URL || "*",
+    origin: (origin) => origin || "*",
     credentials: true,
   })
 );
 
 app.route("/api/auth", authRoutes);
 app.route("/api/conversations", conversationRoutes);
+app.route("/api/documents", documentRoutes);
 
 app.get("/", (c) => c.json({ status: "ok", service: "agent77-api" }));
 

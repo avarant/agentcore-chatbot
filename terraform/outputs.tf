@@ -68,7 +68,7 @@ output "deploy_widget_command" {
 
 output "dashboard_url" {
   description = "Dashboard URL (CloudFront)"
-  value       = var.enable_dashboard && var.enable_dashboard_ui ? local.dashboard_url : ""
+  value       = var.enable_dashboard && var.enable_dashboard_ui ? "https://${aws_cloudfront_distribution.dashboard[0].domain_name}" : ""
 }
 
 output "dashboard_api_url" {
@@ -104,4 +104,18 @@ output "deploy_dashboard_frontend_command" {
 output "deploy_dashboard_lambda_command" {
   description = "Command to update dashboard Lambda code"
   value       = var.enable_dashboard ? "cd apps/api && pnpm build && cd ../.. && cd terraform && terraform apply -target=aws_lambda_function.dashboard -auto-approve" : ""
+}
+
+# ---------------------------------------------------------------------------
+# Knowledge Base outputs
+# ---------------------------------------------------------------------------
+
+output "knowledge_base_id" {
+  description = "Bedrock Knowledge Base ID"
+  value       = var.enable_knowledge_base ? aws_bedrockagent_knowledge_base.main[0].id : ""
+}
+
+output "kb_docs_bucket" {
+  description = "S3 bucket for knowledge base document uploads"
+  value       = var.enable_knowledge_base ? aws_s3_bucket.kb_docs[0].id : ""
 }

@@ -4,16 +4,28 @@ import { validateJwt } from "../lib/auth";
 
 export const authRoutes = new Hono<Env>();
 
+/** Derive the dashboard base URL from the request.
+ * CloudFront sets X-Forwarded-Host to the viewer's original Host.
+ * We can't forward Host directly — Lambda Function URLs reject mismatched Host headers.
+ */
+function getDashboardUrl(c: any): string {
+  const host =
+    c.req.header("x-forwarded-host") ||
+    c.req.header("X-Forwarded-Host");
+  if (host && !host.includes("localhost")) {
+    return `https://${host}`;
+  }
+  return "http://localhost:3000";
+}
+
 authRoutes.get("/login", (c) => {
   const cognitoDomain = process.env.COGNITO_DOMAIN;
   const clientId = process.env.COGNITO_CLIENT_ID;
   if (!cognitoDomain || !clientId) {
     return c.json({ error: "UI auth not configured" }, 404);
   }
-  const dashboardUrl = process.env.DASHBOARD_URL || "";
-  const redirectUri = dashboardUrl
-    ? `${dashboardUrl}/api/auth/callback`
-    : "http://localhost:3000/api/auth/callback";
+  const dashboardUrl = getDashboardUrl(c);
+  const redirectUri = `${dashboardUrl}/api/auth/callback`;
   const loginUrl = `${cognitoDomain}/login?client_id=${clientId}&response_type=code&scope=${encodeURIComponent("openid email profile")}&redirect_uri=${encodeURIComponent(redirectUri)}`;
   return c.redirect(loginUrl);
 });
@@ -31,8 +43,8 @@ authRoutes.get("/callback", async (c) => {
     return c.json({ error: "Missing authorization code" }, 400);
   }
 
-  const dashboardUrl = process.env.DASHBOARD_URL || "";
-  const redirectUri = dashboardUrl ? `${dashboardUrl}/api/auth/callback` : "http://localhost:3000/auth/callback";
+  const dashboardUrl = getDashboardUrl(c);
+  const redirectUri = `${dashboardUrl}/api/auth/callback`;
 
   // Exchange auth code for tokens with Cognito
   const tokenUrl = `${cognitoDomain}/oauth2/token`;
@@ -76,12 +88,11 @@ authRoutes.get("/callback", async (c) => {
 
   // Set JWT cookie and redirect to dashboard
   const maxAge = tokens.expires_in || 3600;
-  const redirectTo = dashboardUrl ? `${dashboardUrl}/dashboard` : "/dashboard";
 
   return new Response(null, {
     status: 302,
     headers: {
-      Location: redirectTo,
+      Location: `${dashboardUrl}/dashboard`,
       "Set-Cookie": `token=${tokens.id_token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAge}`,
     },
   });
@@ -94,8 +105,8 @@ authRoutes.get("/logout", async (c) => {
     return c.json({ error: "UI auth not configured" }, 404);
   }
 
-  const dashboardUrl = process.env.DASHBOARD_URL || "";
-  const logoutRedirect = encodeURIComponent(dashboardUrl || "http://localhost:3000");
+  const dashboardUrl = getDashboardUrl(c);
+  const logoutRedirect = encodeURIComponent(dashboardUrl);
 
   return new Response(null, {
     status: 302,
