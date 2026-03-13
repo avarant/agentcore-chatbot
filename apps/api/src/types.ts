@@ -9,6 +9,7 @@ export type Env = {
     KB_DOCS_BUCKET?: string;
     KNOWLEDGE_BASE_ID?: string;
     KB_DATA_SOURCE_ID?: string;
+    PROMPT_ID?: string;
   };
   Variables: {
     userId: string;

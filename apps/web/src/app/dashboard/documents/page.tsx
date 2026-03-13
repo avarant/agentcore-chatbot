@@ -16,6 +16,7 @@ import {
   Loader2,
   CheckCircle2,
   AlertCircle,
+  ExternalLink,
 } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
@@ -163,6 +164,21 @@ export default function DocumentsPage() {
     }
   }
 
+  async function viewDocument(key: string) {
+    try {
+      const res = await fetch(
+        `${API_URL}/api/documents/view/${encodeURIComponent(key)}`,
+        { credentials: "include" }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        window.open(data.url, "_blank");
+      }
+    } catch {
+      // ignore
+    }
+  }
+
   function handleDrop(e: React.DragEvent) {
     e.preventDefault();
     setDragOver(false);
@@ -283,14 +299,23 @@ export default function DocumentsPage() {
                       </p>
                     </div>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => deleteDocument(doc.key)}
-                    className="shrink-0 text-destructive hover:text-destructive"
-                  >
-                    <Trash2 className="size-3.5" />
-                  </Button>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => viewDocument(doc.key)}
+                    >
+                      <ExternalLink className="size-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => deleteDocument(doc.key)}
+                      className="text-destructive hover:text-destructive"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>

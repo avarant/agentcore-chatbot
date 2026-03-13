@@ -6,20 +6,19 @@ import { usePathname } from "next/navigation";
 import { CustomerContext, type User } from "./customer-context";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Settings, MessageSquare, LogOut, Bot, FileText } from "lucide-react";
+import { Settings, MessageSquare, LogOut, Bot, FileText, BookOpen } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 const COGNITO_DOMAIN = process.env.NEXT_PUBLIC_COGNITO_DOMAIN || "";
 const CLIENT_ID = process.env.NEXT_PUBLIC_COGNITO_CLIENT_ID || "";
 const REDIRECT_URI = encodeURIComponent(process.env.NEXT_PUBLIC_AUTH_CALLBACK_URL || "");
 const LOGIN_URL = `${COGNITO_DOMAIN}/login?response_type=code&client_id=${CLIENT_ID}&redirect_uri=${REDIRECT_URI}&scope=${encodeURIComponent("openid email profile")}`;
-const RUNTIME_URL = process.env.NEXT_PUBLIC_RUNTIME_URL || "";
-const WIDGET_URL = process.env.NEXT_PUBLIC_WIDGET_URL || "";
 
 const NAV_ITEMS = [
-  { href: "/dashboard", label: "Settings", icon: Settings },
   { href: "/dashboard/conversations", label: "Conversations", icon: MessageSquare },
   { href: "/dashboard/documents", label: "Documents", icon: FileText },
+  { href: "/dashboard/prompts", label: "Prompts", icon: BookOpen },
+  { href: "/dashboard/settings", label: "Settings", icon: Settings },
 ];
 
 export default function DashboardLayout({
@@ -64,25 +63,6 @@ export default function DashboardLayout({
       });
   }, []);
 
-  // Inject chatbot widget after auth succeeds
-  useEffect(() => {
-    if (!user || !RUNTIME_URL || !WIDGET_URL) return;
-
-    const existing = document.querySelector('script[data-runtime-url]');
-    if (existing) return;
-
-    const script = document.createElement("script");
-    script.src = WIDGET_URL;
-    script.dataset.tokenUrl = "/api/auth/token";
-    script.dataset.runtimeUrl = RUNTIME_URL;
-    script.async = true;
-    document.head.appendChild(script);
-
-    return () => {
-      script.remove();
-    };
-  }, [user]);
-
   function handleLogout() {
     window.location.href = `${API_URL}/api/auth/logout`;
   }
@@ -111,7 +91,7 @@ export default function DashboardLayout({
           {/* Nav */}
           <nav className="flex-1 space-y-1 px-3 py-4">
             {NAV_ITEMS.map((item) => {
-              const isActive = pathname === item.href;
+              const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
               return (
                 <Link key={item.href} href={item.href}>
                   <Button

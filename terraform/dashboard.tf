@@ -83,6 +83,31 @@ resource "aws_iam_role_policy" "dashboard_lambda_memory" {
   })
 }
 
+resource "aws_iam_role_policy" "dashboard_lambda_prompts" {
+  count = local.enable_dashboard
+
+  name = "${local.name_prefix}-dashboard-lambda-prompts"
+  role = aws_iam_role.dashboard_lambda[0].id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "BedrockPromptManagement"
+        Effect = "Allow"
+        Action = [
+          "bedrock:GetPrompt",
+          "bedrock:UpdatePrompt",
+          "bedrock:ListPrompts",
+        ]
+        Resource = [
+          aws_bedrockagent_prompt.system[0].arn,
+        ]
+      }
+    ]
+  })
+}
+
 resource "aws_iam_role_policy" "dashboard_lambda_kb" {
   count = var.enable_dashboard && var.enable_knowledge_base ? 1 : 0
 
@@ -153,6 +178,9 @@ resource "aws_lambda_function" "dashboard" {
         AWS_REGION_NAME       = var.aws_region
         DASHBOARD_API_KEY     = var.dashboard_api_key
       },
+      var.enable_agentcore ? {
+        PROMPT_ID = aws_bedrockagent_prompt.system[0].id
+      } : {},
       var.enable_dashboard_ui ? {
         COGNITO_USER_POOL_ID = aws_cognito_user_pool.dashboard[0].id
         COGNITO_CLIENT_ID    = aws_cognito_user_pool_client.dashboard[0].id

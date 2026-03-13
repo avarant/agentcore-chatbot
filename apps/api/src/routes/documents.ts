@@ -4,6 +4,7 @@ import {
   ListObjectsV2Command,
   DeleteObjectCommand,
   PutObjectCommand,
+  GetObjectCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import {
@@ -115,6 +116,25 @@ documentRoutes.get("/sync-status/:jobId", async (c) => {
     status: result.ingestionJob?.status,
     statistics: result.ingestionJob?.statistics,
   });
+});
+
+// Generate presigned URL for viewing/downloading a document
+documentRoutes.get("/view/:key", async (c) => {
+  const bucket = process.env.KB_DOCS_BUCKET;
+  if (!bucket) {
+    return c.json({ error: "Knowledge base not configured" }, 503);
+  }
+
+  const key = c.req.param("key");
+
+  const command = new GetObjectCommand({
+    Bucket: bucket,
+    Key: key,
+  });
+
+  const url = await getSignedUrl(s3, command, { expiresIn: 300 });
+
+  return c.json({ url });
 });
 
 // Delete a document
