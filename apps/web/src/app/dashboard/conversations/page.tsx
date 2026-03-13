@@ -9,6 +9,23 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 type Session = { session_id: string; actor_id: string; created_at: string; summary: string | null };
 type HistoryMessage = { role: string; content: string; timestamp: string };
 
+// Reverse the sanitizeActorId transformation to display a readable identifier.
+// AgentCore requires [a-zA-Z0-9][a-zA-Z0-9-_/]* so emails have @ and . replaced with _.
+// Heuristic: if it looks like a sanitized email (contains exactly one segment before a
+// known domain pattern), restore the @ and dots.
+function displayActorId(actorId: string): string {
+  if (!actorId || actorId === "anonymous") return "Anonymous";
+  // Try to detect email pattern: name_domain_tld or name_domain_co_tld
+  const match = actorId.match(/^(.+?)_([a-z0-9]+(?:_[a-z]{2,})+)$/i);
+  if (match) {
+    const local = match[1];
+    const domainParts = match[2].split("_");
+    return `${local}@${domainParts.join(".")}`;
+  }
+  // Fallback: just replace underscores with spaces for readability
+  return actorId.replace(/_/g, " ");
+}
+
 export default function ConversationsPage() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState(true);
@@ -151,7 +168,7 @@ export default function ConversationsPage() {
                         : "text-muted-foreground hover:bg-accent"
                     }`}
                   >
-                    <div className="truncate">{s.actor_id}</div>
+                    <div className="truncate font-medium">{displayActorId(s.actor_id)}</div>
                     {s.summary && (
                       <div className="mt-0.5 line-clamp-2 text-[11px] opacity-80">
                         {s.summary}

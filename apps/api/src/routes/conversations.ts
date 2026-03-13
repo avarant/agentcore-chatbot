@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import {
   BedrockAgentCoreClient,
+  ListActorsCommand,
   ListSessionsCommand,
   ListEventsCommand,
   ListMemoryRecordsCommand,
@@ -21,7 +22,7 @@ function sanitizeActorId(email: string): string {
   return email.replace(/[^a-zA-Z0-9-_/]/g, "_");
 }
 
-// List sessions for the current user (paginated, sorted by most recent)
+// List all sessions (paginated, sorted by most recent)
 conversationRoutes.get("/", async (c) => {
   const memoryId = process.env.AGENTCORE_MEMORY_ID;
   if (!memoryId) {
@@ -31,19 +32,24 @@ conversationRoutes.get("/", async (c) => {
   const limit = Math.min(Math.max(parseInt(c.req.query("limit") || "20", 10) || 20, 1), 100);
   const cursor = c.req.query("cursor") || undefined;
 
-  // API key auth: require user_id query param
-  // Cognito auth: scope to authenticated user's email
+  // Dashboard shows all conversations — list all actors
+  // Optional user_id filter narrows to a specific user
+  const userIdFilter = c.req.query("user_id");
   let actorIds: string[];
-  if (c.get("authMode") === "api_key") {
-    const userId = c.req.query("user_id");
-    if (!userId) {
-      return c.json({ error: "user_id query parameter is required for API key auth" }, 400);
-    }
-    actorIds = [sanitizeActorId(userId)];
+
+  if (userIdFilter) {
+    actorIds = [sanitizeActorId(userIdFilter)];
   } else {
-    const actorId = sanitizeActorId(c.get("email") || "anonymous");
-    actorIds = [actorId];
-    if (actorId !== "anonymous") actorIds.push("anonymous");
+    try {
+      const actorsResult = await client.send(
+        new ListActorsCommand({ memoryId, maxResults: 100 })
+      );
+      actorIds = (actorsResult.actorSummaries || [])
+        .map((a) => a.actorId)
+        .filter((id): id is string => !!id);
+    } catch {
+      actorIds = ["anonymous"];
+    }
   }
 
   const allSessions: { session_id: string; actor_id: string; created_at: string; summary: string | null }[] = [];
@@ -123,19 +129,23 @@ conversationRoutes.get("/:sessionId", async (c) => {
 
   const sessionId = c.req.param("sessionId");
 
-  // API key auth: require user_id query param
-  // Cognito auth: scope to authenticated user's email
+  // Try all actors to find the session
   let actorIds: string[];
-  if (c.get("authMode") === "api_key") {
-    const userId = c.req.query("user_id");
-    if (!userId) {
-      return c.json({ error: "user_id query parameter is required for API key auth" }, 400);
-    }
-    actorIds = [sanitizeActorId(userId)];
+  const userIdFilter = c.req.query("user_id");
+
+  if (userIdFilter) {
+    actorIds = [sanitizeActorId(userIdFilter)];
   } else {
-    const actorId = sanitizeActorId(c.get("email") || "anonymous");
-    actorIds = [actorId];
-    if (actorId !== "anonymous") actorIds.push("anonymous");
+    try {
+      const actorsResult = await client.send(
+        new ListActorsCommand({ memoryId, maxResults: 100 })
+      );
+      actorIds = (actorsResult.actorSummaries || [])
+        .map((a) => a.actorId)
+        .filter((id): id is string => !!id);
+    } catch {
+      actorIds = ["anonymous"];
+    }
   }
 
   const messages: { role: string; content: string; timestamp: string }[] = [];

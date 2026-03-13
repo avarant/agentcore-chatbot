@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "npx tsx watch --env-file=.env.local src/index.ts",
-    "build": "esbuild src/index.ts --bundle --platform=node --target=node20 --outfile=dist/index.js --external:@aws-sdk/client-dynamodb --external:@aws-sdk/lib-dynamodb --external:@aws-sdk/client-bedrock-agentcore --external:@hono/node-server"
+    "build": "esbuild src/index.ts --bundle --platform=node --target=node20 --outfile=dist/index.js --external:@aws-sdk/client-dynamodb --external:@aws-sdk/lib-dynamodb --external:@hono/node-server"
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-agentcore": "^3.996.0",

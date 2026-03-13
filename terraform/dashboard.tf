@@ -72,6 +72,7 @@ resource "aws_iam_role_policy" "dashboard_lambda_memory" {
         Sid    = "AgentCoreMemoryRead"
         Effect = "Allow"
         Action = [
+          "bedrock-agentcore:ListActors",
           "bedrock-agentcore:ListSessions",
           "bedrock-agentcore:ListEvents",
           "bedrock-agentcore:GetEvent",

@@ -400,6 +400,10 @@ resource "aws_bedrockagentcore_agent_runtime" "main" {
     server_protocol = "HTTP"
   }
 
+  request_header_configuration {
+    request_header_allowlist = ["Authorization"]
+  }
+
   dynamic "authorizer_configuration" {
     for_each = var.oidc_discovery_url != "" ? [1] : []
     content {

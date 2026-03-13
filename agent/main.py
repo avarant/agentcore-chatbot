@@ -1,5 +1,8 @@
 import os
+import re
+import json
 import logging
+import base64
 
 # Ensure region is always available for boto3/SDK clients
 REGION = os.environ.get("AWS_REGION_NAME") or os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION") or "us-east-1"
@@ -44,8 +47,46 @@ def _fetch_prompt() -> str:
 SYSTEM_PROMPT = _fetch_prompt()
 
 
+def _sanitize_actor_id(raw: str) -> str:
+    """Sanitize to match AgentCore constraint: [a-zA-Z0-9][a-zA-Z0-9-_/]*"""
+    sanitized = re.sub(r"[^a-zA-Z0-9\-_/]", "_", raw)
+    if not sanitized or not sanitized[0].isalnum():
+        sanitized = "u" + sanitized
+    return sanitized
+
+
+def _extract_actor_id(context) -> str:
+    """Extract user identity from the JWT that AgentCore already validated."""
+    try:
+        headers = getattr(context, "request_headers", None) if context else None
+        logger.warning("extract_actor_id: context=%s, headers=%s", type(context).__name__ if context else None, headers)
+        if not headers:
+            return "anonymous"
+        # Try both lowercase and mixed case header names
+        auth_header = headers.get("authorization") or headers.get("Authorization") or ""
+        if not auth_header:
+            logger.warning("No authorization header in: %s", list(headers.keys()))
+            return "anonymous"
+        token = auth_header.removeprefix("Bearer ").removeprefix("bearer ")
+        # Decode payload without verification — AgentCore already validated
+        parts = token.split(".")
+        if len(parts) < 2:
+            logger.warning("JWT has fewer than 2 parts")
+            return "anonymous"
+        payload_b64 = parts[1]
+        # Fix base64 padding
+        payload_b64 += "=" * (4 - len(payload_b64) % 4)
+        claims = json.loads(base64.urlsafe_b64decode(payload_b64))
+        identity = claims.get("email") or claims.get("sub") or "anonymous"
+        logger.warning("Extracted identity: %s", identity)
+        return _sanitize_actor_id(identity) if identity != "anonymous" else identity
+    except Exception as e:
+        logger.warning("Failed to extract actor_id from JWT: %s", e)
+        return "anonymous"
+
+
 @app.entrypoint
-async def invoke(payload=None):
+async def invoke(payload=None, context=None):
     """Main entrypoint for the agent — streams text chunks via SSE"""
     try:
         query = (
@@ -54,7 +95,8 @@ async def invoke(payload=None):
             else "Hello!"
         )
         session_id = payload.get("session_id", "default") if payload else "default"
-        actor_id = payload.get("user_id", "anonymous") if payload else "anonymous"
+        actor_id = _extract_actor_id(context)
+        logger.warning("invoke: session_id=%s, actor_id=%s", session_id, actor_id)
 
         if MEMORY_ID:
             config = AgentCoreMemoryConfig(
