@@ -193,16 +193,14 @@ import type { ChatbotConfig, ChatMessage } from "./types";
       :host {
         --primary: #603C99;
         --primary-hover: #4e3080;
-        --accent: #603C99;
-        --accent-hover: #4e3080;
         --bg: #ffffff;
-        --bg-secondary: #f4f4f5;
-        --bg-bot: #fafafa;
-        --text: #18181b;
+        --bg-secondary: #f0edf5;
+        --bg-bot: #f7f5fa;
+        --text: #1a1a2e;
         --text-secondary: #71717a;
-        --border: #e4e4e7;
-        --radius: 20px;
-        --shadow: 0 12px 40px rgba(0,0,0,0.10), 0 2px 8px rgba(0,0,0,0.06);
+        --border: #e8e5ed;
+        --radius: 16px;
+        --shadow: 0 8px 32px rgba(96,60,153,0.12), 0 2px 8px rgba(0,0,0,0.06);
         --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         font-family: var(--font);
         font-size: 14px;
@@ -247,28 +245,31 @@ import type { ChatbotConfig, ChatMessage } from "./types";
         flex-direction: column;
         overflow: hidden;
         z-index: 10000;
-        border: 1px solid var(--border);
       }
       .panel.open { display: flex; }
 
       .header {
-        padding: 14px 16px;
+        padding: 12px 12px;
         background: var(--primary);
         color: #fff;
         font-weight: 600;
-        font-size: 14px;
+        font-size: 15px;
         display: flex;
         align-items: center;
-        justify-content: flex-end;
+        justify-content: space-between;
         flex-shrink: 0;
         border-radius: var(--radius) var(--radius) 0 0;
       }
-      .header button {
+      .header-title {
+        flex: 1;
+        text-align: center;
+        letter-spacing: 0.01em;
+      }
+      .header-btn {
         background: none;
         border: none;
-        color: rgba(255,255,255,0.8);
+        color: rgba(255,255,255,0.75);
         cursor: pointer;
-        font-size: 20px;
         width: 32px;
         height: 32px;
         border-radius: 8px;
@@ -277,7 +278,8 @@ import type { ChatbotConfig, ChatMessage } from "./types";
         justify-content: center;
         transition: background 0.15s, color 0.15s;
       }
-      .header button:hover { background: rgba(255,255,255,0.15); color: #fff; }
+      .header-btn:hover { background: rgba(255,255,255,0.15); color: #fff; }
+      .header-btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
       .messages {
         flex: 1;
@@ -294,15 +296,15 @@ import type { ChatbotConfig, ChatMessage } from "./types";
       .msg {
         max-width: 85%;
         padding: 10px 14px;
-        border-radius: 12px;
+        border-radius: 16px;
         word-wrap: break-word;
         font-size: 14px;
         line-height: 1.6;
       }
       .msg.user {
         align-self: flex-end;
-        background: var(--primary);
-        color: #fff;
+        background: var(--bg-secondary);
+        color: var(--text);
         border-bottom-right-radius: 4px;
         white-space: pre-wrap;
       }
@@ -361,7 +363,8 @@ import type { ChatbotConfig, ChatMessage } from "./types";
         width: 6px;
         height: 6px;
         border-radius: 50%;
-        background: var(--text-secondary);
+        background: var(--primary);
+        opacity: 0.4;
         animation: dotPulse 1.2s ease-in-out infinite;
       }
       .loading-dots span:nth-child(2) { animation-delay: 0.2s; }
@@ -372,18 +375,15 @@ import type { ChatbotConfig, ChatMessage } from "./types";
       }
 
       .input-area {
-        display: flex;
-        gap: 8px;
-        padding: 12px 16px;
-        border-top: 1px solid var(--border);
+        padding: 12px 16px 16px;
         flex-shrink: 0;
         background: var(--bg);
       }
       .input-area input {
-        flex: 1;
-        padding: 10px 14px;
-        border: 1px solid var(--border);
-        border-radius: 12px;
+        width: 100%;
+        padding: 12px 18px;
+        border: 2px solid var(--border);
+        border-radius: 999px;
         outline: none;
         font-size: 14px;
         font-family: var(--font);
@@ -391,26 +391,8 @@ import type { ChatbotConfig, ChatMessage } from "./types";
         color: var(--text);
         transition: border-color 0.2s, box-shadow 0.2s;
       }
-      .input-area input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(96,60,153,0.1); }
+      .input-area input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(96,60,153,0.08); }
       .input-area input::placeholder { color: var(--text-secondary); }
-
-      .input-area button {
-        width: 38px;
-        height: 38px;
-        border-radius: 10px;
-        background: var(--accent);
-        color: #fff;
-        border: none;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-        transition: background 0.15s;
-      }
-      .input-area button:hover { background: var(--accent-hover); }
-      .input-area button:disabled { opacity: 0.4; cursor: not-allowed; }
-      .input-area button svg { width: 16px; height: 16px; fill: currentColor; }
     `;
     shadow.appendChild(styles);
 
@@ -427,7 +409,7 @@ import type { ChatbotConfig, ChatMessage } from "./types";
 
     const header = document.createElement("div");
     header.className = "header";
-    header.innerHTML = `<button aria-label="Close chat">&times;</button>`;
+    header.innerHTML = `<button class="header-btn" aria-label="Reset conversation"><svg viewBox="0 0 24 24"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg></button><span class="header-title">AI Assistant</span><button class="header-btn" aria-label="Close chat"><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>`;
     panel.appendChild(header);
 
     const messagesEl = document.createElement("div");
@@ -439,14 +421,9 @@ import type { ChatbotConfig, ChatMessage } from "./types";
 
     const input = document.createElement("input");
     input.type = "text";
-    input.placeholder = "Type a message...";
-
-    const sendBtn = document.createElement("button");
-    sendBtn.setAttribute("aria-label", "Send message");
-    sendBtn.innerHTML = `<svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>`;
+    input.placeholder = "Ask a question";
 
     inputArea.appendChild(input);
-    inputArea.appendChild(sendBtn);
     panel.appendChild(inputArea);
     shadow.appendChild(panel);
 
@@ -460,7 +437,14 @@ import type { ChatbotConfig, ChatMessage } from "./types";
     }
 
     toggleBtn.addEventListener("click", togglePanel);
-    header.querySelector("button")!.addEventListener("click", togglePanel);
+    const headerBtns = header.querySelectorAll(".header-btn");
+    // First button: reset conversation
+    headerBtns[0].addEventListener("click", () => {
+      messages.length = 0;
+      messagesEl.innerHTML = "";
+    });
+    // Second button: close panel
+    headerBtns[1].addEventListener("click", togglePanel);
 
     // Messages
     const messages: ChatMessage[] = [];
@@ -497,7 +481,6 @@ import type { ChatbotConfig, ChatMessage } from "./types";
       if (!text || sending) return;
 
       sending = true;
-      sendBtn.setAttribute("disabled", "");
       input.value = "";
 
       addMessage("user", text);
@@ -525,12 +508,10 @@ import type { ChatbotConfig, ChatMessage } from "./types";
         }
       } finally {
         sending = false;
-        sendBtn.removeAttribute("disabled");
         input.focus();
       }
     }
 
-    sendBtn.addEventListener("click", handleSend);
     input.addEventListener("keydown", (e) => {
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
