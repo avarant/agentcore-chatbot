@@ -35,6 +35,16 @@ import type { ChatbotConfig, ChatMessage } from "./types";
     return jwt!;
   }
 
+  function getUserId(): string {
+    if (!jwt) return "anonymous";
+    try {
+      const payload = JSON.parse(atob(jwt.split(".")[1]));
+      return payload.email || payload.sub || "anonymous";
+    } catch {
+      return "anonymous";
+    }
+  }
+
   function decodeJwtExp(token: string): number | null {
     try {
       const payload = JSON.parse(atob(token.split(".")[1]));
@@ -70,7 +80,7 @@ import type { ChatbotConfig, ChatMessage } from "./types";
         "Content-Type": "application/json",
         "X-Amzn-Bedrock-AgentCore-Runtime-Session-Id": sessionId,
       },
-      body: JSON.stringify({ prompt: message, session_id: sessionId }),
+      body: JSON.stringify({ prompt: message, session_id: sessionId, user_id: getUserId() }),
     });
 
     if (res.status === 401 && !retried) {
