@@ -211,7 +211,7 @@ export default function ConversationsPage() {
                               : "bg-card border text-card-foreground"
                           }`}
                         >
-                          {msg.content}
+                          {typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content)}
                         </div>
                       </div>
                     ))

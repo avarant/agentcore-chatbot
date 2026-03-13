@@ -161,8 +161,17 @@ conversationRoutes.get("/:sessionId", async (c) => {
           if (payload.conversational) {
             try {
               const parsed = JSON.parse(payload.conversational.content?.text || "{}");
-              const text =
-                parsed.message?.content?.[0]?.text || parsed.message?.content || "";
+              const content = parsed.message?.content;
+              let text = "";
+              if (typeof content === "string") {
+                text = content;
+              } else if (Array.isArray(content)) {
+                // Extract only text entries, skip toolUse/toolResult objects
+                text = content
+                  .filter((c: any) => c.text)
+                  .map((c: any) => c.text)
+                  .join("\n");
+              }
               if (text) {
                 messages.push({
                   role: payload.conversational.role === "USER" ? "user" : "assistant",
