@@ -164,22 +164,49 @@ import type { ChatbotConfig, ChatMessage } from "./types";
 
     const shadow = host.attachShadow({ mode: "open" });
 
+    // --- Simple markdown renderer ---
+    function renderMarkdown(text: string): string {
+      return text
+        // Code blocks
+        .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
+        // Inline code
+        .replace(/`([^`]+)`/g, '<code>$1</code>')
+        // Bold
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        // Italic
+        .replace(/\*(.+?)\*/g, '<em>$1</em>')
+        // Unordered lists
+        .replace(/^[-*] (.+)$/gm, '<li>$1</li>')
+        .replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>')
+        // Ordered lists
+        .replace(/^\d+\. (.+)$/gm, '<li>$1</li>')
+        // Headings
+        .replace(/^### (.+)$/gm, '<h4>$1</h4>')
+        .replace(/^## (.+)$/gm, '<h3>$1</h3>')
+        .replace(/^# (.+)$/gm, '<h2>$1</h2>')
+        // Line breaks
+        .replace(/\n/g, '<br>');
+    }
+
     const styles = document.createElement("style");
     styles.textContent = `
       :host {
-        --primary: #2563eb;
-        --primary-hover: #1d4ed8;
+        --primary: #603C99;
+        --primary-hover: #4e3080;
+        --accent: #603C99;
+        --accent-hover: #4e3080;
         --bg: #ffffff;
-        --bg-secondary: #f3f4f6;
-        --text: #111827;
-        --text-secondary: #6b7280;
-        --border: #e5e7eb;
-        --radius: 12px;
-        --shadow: 0 8px 30px rgba(0,0,0,0.12);
+        --bg-secondary: #f4f4f5;
+        --bg-bot: #fafafa;
+        --text: #18181b;
+        --text-secondary: #71717a;
+        --border: #e4e4e7;
+        --radius: 20px;
+        --shadow: 0 12px 40px rgba(0,0,0,0.10), 0 2px 8px rgba(0,0,0,0.06);
         --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         font-family: var(--font);
         font-size: 14px;
-        line-height: 1.5;
+        line-height: 1.6;
       }
 
       * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -200,18 +227,18 @@ import type { ChatbotConfig, ChatMessage } from "./types";
         justify-content: center;
         box-shadow: var(--shadow);
         z-index: 10000;
-        transition: background 0.2s, transform 0.2s;
+        transition: background 0.2s, transform 0.15s;
       }
       .toggle-btn:hover { background: var(--primary-hover); transform: scale(1.05); }
-      .toggle-btn svg { width: 24px; height: 24px; fill: currentColor; }
+      .toggle-btn svg { width: 22px; height: 22px; fill: currentColor; }
 
       .panel {
         position: fixed;
-        bottom: 88px;
+        bottom: 84px;
         right: 20px;
-        width: 380px;
+        width: 400px;
         max-width: calc(100vw - 40px);
-        height: 520px;
+        height: 560px;
         max-height: calc(100vh - 120px);
         background: var(--bg);
         border-radius: var(--radius);
@@ -225,59 +252,123 @@ import type { ChatbotConfig, ChatMessage } from "./types";
       .panel.open { display: flex; }
 
       .header {
-        padding: 16px;
+        padding: 14px 16px;
         background: var(--primary);
         color: #fff;
         font-weight: 600;
-        font-size: 15px;
+        font-size: 14px;
         display: flex;
         align-items: center;
-        justify-content: space-between;
+        justify-content: flex-end;
         flex-shrink: 0;
+        border-radius: var(--radius) var(--radius) 0 0;
       }
       .header button {
         background: none;
         border: none;
-        color: #fff;
+        color: rgba(255,255,255,0.8);
         cursor: pointer;
-        font-size: 18px;
-        padding: 2px 6px;
-        border-radius: 4px;
-        line-height: 1;
+        font-size: 20px;
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.15s, color 0.15s;
       }
-      .header button:hover { background: rgba(255,255,255,0.2); }
+      .header button:hover { background: rgba(255,255,255,0.15); color: #fff; }
 
       .messages {
         flex: 1;
         overflow-y: auto;
-        padding: 16px;
+        padding: 20px 16px;
         display: flex;
         flex-direction: column;
-        gap: 10px;
+        gap: 12px;
+        background: var(--bg);
       }
       .messages::-webkit-scrollbar { width: 4px; }
       .messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 
       .msg {
-        max-width: 80%;
+        max-width: 85%;
         padding: 10px 14px;
-        border-radius: 16px;
+        border-radius: 12px;
         word-wrap: break-word;
-        white-space: pre-wrap;
         font-size: 14px;
-        line-height: 1.5;
+        line-height: 1.6;
       }
       .msg.user {
         align-self: flex-end;
         background: var(--primary);
         color: #fff;
         border-bottom-right-radius: 4px;
+        white-space: pre-wrap;
       }
       .msg.bot {
         align-self: flex-start;
-        background: var(--bg-secondary);
+        background: var(--bg-bot);
         color: var(--text);
+        border: 1px solid var(--border);
         border-bottom-left-radius: 4px;
+      }
+      .msg.bot strong { font-weight: 600; }
+      .msg.bot em { font-style: italic; }
+      .msg.bot code {
+        background: var(--bg-secondary);
+        padding: 1px 5px;
+        border-radius: 4px;
+        font-size: 13px;
+        font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+      }
+      .msg.bot pre {
+        background: #1e1e2e;
+        color: #cdd6f4;
+        padding: 10px 12px;
+        border-radius: 8px;
+        overflow-x: auto;
+        margin: 6px 0;
+        font-size: 13px;
+        line-height: 1.5;
+      }
+      .msg.bot pre code {
+        background: none;
+        padding: 0;
+        color: inherit;
+        font-size: inherit;
+      }
+      .msg.bot ul, .msg.bot ol {
+        padding-left: 18px;
+        margin: 4px 0;
+      }
+      .msg.bot li { margin: 2px 0; }
+      .msg.bot h2, .msg.bot h3, .msg.bot h4 {
+        font-weight: 600;
+        margin: 8px 0 4px;
+      }
+      .msg.bot h2 { font-size: 16px; }
+      .msg.bot h3 { font-size: 15px; }
+      .msg.bot h4 { font-size: 14px; }
+
+      /* Loading dots */
+      .loading-dots {
+        display: inline-flex;
+        gap: 4px;
+        padding: 4px 0;
+      }
+      .loading-dots span {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--text-secondary);
+        animation: dotPulse 1.2s ease-in-out infinite;
+      }
+      .loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+      .loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+      @keyframes dotPulse {
+        0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
+        40% { opacity: 1; transform: scale(1); }
       }
 
       .input-area {
@@ -292,22 +383,22 @@ import type { ChatbotConfig, ChatMessage } from "./types";
         flex: 1;
         padding: 10px 14px;
         border: 1px solid var(--border);
-        border-radius: 24px;
+        border-radius: 12px;
         outline: none;
         font-size: 14px;
         font-family: var(--font);
-        background: var(--bg-secondary);
+        background: var(--bg);
         color: var(--text);
-        transition: border-color 0.2s;
+        transition: border-color 0.2s, box-shadow 0.2s;
       }
-      .input-area input:focus { border-color: var(--primary); }
+      .input-area input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(96,60,153,0.1); }
       .input-area input::placeholder { color: var(--text-secondary); }
 
       .input-area button {
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        background: var(--primary);
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        background: var(--accent);
         color: #fff;
         border: none;
         cursor: pointer;
@@ -315,11 +406,11 @@ import type { ChatbotConfig, ChatMessage } from "./types";
         align-items: center;
         justify-content: center;
         flex-shrink: 0;
-        transition: background 0.2s;
+        transition: background 0.15s;
       }
-      .input-area button:hover { background: var(--primary-hover); }
-      .input-area button:disabled { opacity: 0.5; cursor: not-allowed; }
-      .input-area button svg { width: 18px; height: 18px; fill: currentColor; }
+      .input-area button:hover { background: var(--accent-hover); }
+      .input-area button:disabled { opacity: 0.4; cursor: not-allowed; }
+      .input-area button svg { width: 16px; height: 16px; fill: currentColor; }
     `;
     shadow.appendChild(styles);
 
@@ -336,7 +427,7 @@ import type { ChatbotConfig, ChatMessage } from "./types";
 
     const header = document.createElement("div");
     header.className = "header";
-    header.innerHTML = `<span>Chat</span><button aria-label="Close chat">&times;</button>`;
+    header.innerHTML = `<button aria-label="Close chat">&times;</button>`;
     panel.appendChild(header);
 
     const messagesEl = document.createElement("div");
@@ -379,7 +470,20 @@ import type { ChatbotConfig, ChatMessage } from "./types";
       messages.push(msg);
       const el = document.createElement("div");
       el.className = `msg ${role}`;
-      el.textContent = content;
+      if (role === "bot" && content) {
+        el.innerHTML = renderMarkdown(content);
+      } else {
+        el.textContent = content;
+      }
+      messagesEl.appendChild(el);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+      return el;
+    }
+
+    function showLoading(): HTMLDivElement {
+      const el = document.createElement("div");
+      el.className = "msg bot";
+      el.innerHTML = '<div class="loading-dots"><span></span><span></span><span></span></div>';
       messagesEl.appendChild(el);
       messagesEl.scrollTop = messagesEl.scrollHeight;
       return el;
@@ -397,20 +501,28 @@ import type { ChatbotConfig, ChatMessage } from "./types";
       input.value = "";
 
       addMessage("user", text);
-      const botEl = addMessage("bot", "");
+      const loadingEl = showLoading();
 
       try {
         const response = await sendMessage(text);
+        // Replace loading with actual bot message
+        loadingEl.innerHTML = "";
+        loadingEl.textContent = "";
+        messages.push({ role: "bot", content: "" });
+
         let accumulated = "";
         await streamResponse(response, (chunk) => {
           accumulated += chunk;
-          botEl.textContent = accumulated;
+          loadingEl.innerHTML = renderMarkdown(accumulated);
           messagesEl.scrollTop = messagesEl.scrollHeight;
         });
         messages[messages.length - 1].content = accumulated;
       } catch (err) {
-        botEl.textContent = "Something went wrong. Please try again.";
-        messages[messages.length - 1].content = botEl.textContent;
+        loadingEl.innerHTML = "";
+        loadingEl.textContent = "Something went wrong. Please try again.";
+        if (messages.length && messages[messages.length - 1].role === "bot") {
+          messages[messages.length - 1].content = loadingEl.textContent;
+        }
       } finally {
         sending = false;
         sendBtn.removeAttribute("disabled");
