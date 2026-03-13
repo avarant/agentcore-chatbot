@@ -193,14 +193,15 @@ import type { ChatbotConfig, ChatMessage } from "./types";
       :host {
         --primary: #603C99;
         --primary-hover: #4e3080;
+        --primary-light: #7c5bb0;
         --bg: #ffffff;
         --bg-secondary: #f0edf5;
         --bg-bot: #f7f5fa;
         --text: #1a1a2e;
         --text-secondary: #71717a;
         --border: #e8e5ed;
-        --radius: 16px;
-        --shadow: 0 8px 32px rgba(96,60,153,0.12), 0 2px 8px rgba(0,0,0,0.06);
+        --radius: 24px;
+        --shadow: 0 12px 48px rgba(96,60,153,0.18), 0 4px 12px rgba(0,0,0,0.08);
         --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         font-family: var(--font);
         font-size: 14px;
@@ -211,8 +212,8 @@ import type { ChatbotConfig, ChatMessage } from "./types";
 
       .toggle-btn {
         position: fixed;
-        bottom: 20px;
-        right: 20px;
+        bottom: 24px;
+        right: 24px;
         width: 56px;
         height: 56px;
         border-radius: 50%;
@@ -223,21 +224,22 @@ import type { ChatbotConfig, ChatMessage } from "./types";
         display: flex;
         align-items: center;
         justify-content: center;
-        box-shadow: var(--shadow);
+        box-shadow: 0 4px 20px rgba(96,60,153,0.35);
         z-index: 10000;
-        transition: background 0.2s, transform 0.15s;
+        transition: background 0.2s, transform 0.2s, opacity 0.25s ease;
       }
-      .toggle-btn:hover { background: var(--primary-hover); transform: scale(1.05); }
+      .toggle-btn:hover { background: var(--primary-hover); transform: scale(1.08); }
+      .toggle-btn.hidden { opacity: 0; pointer-events: none; transform: scale(0.8); }
       .toggle-btn svg { width: 22px; height: 22px; fill: currentColor; }
 
       .panel {
         position: fixed;
-        bottom: 84px;
-        right: 20px;
+        bottom: 24px;
+        right: 24px;
         width: 400px;
-        max-width: calc(100vw - 40px);
-        height: 560px;
-        max-height: calc(100vh - 120px);
+        max-width: calc(100vw - 48px);
+        height: 580px;
+        max-height: calc(100vh - 48px);
         background: var(--bg);
         border-radius: var(--radius);
         box-shadow: var(--shadow);
@@ -245,12 +247,18 @@ import type { ChatbotConfig, ChatMessage } from "./types";
         flex-direction: column;
         overflow: hidden;
         z-index: 10000;
+        animation: panelSlideIn 0.3s ease;
       }
       .panel.open { display: flex; }
 
+      @keyframes panelSlideIn {
+        from { opacity: 0; transform: translateY(12px) scale(0.97); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+      }
+
       .header {
-        padding: 12px 12px;
-        background: var(--primary);
+        padding: 14px 12px;
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
         color: #fff;
         font-weight: 600;
         font-size: 15px;
@@ -263,22 +271,22 @@ import type { ChatbotConfig, ChatMessage } from "./types";
       .header-title {
         flex: 1;
         text-align: center;
-        letter-spacing: 0.01em;
+        letter-spacing: 0.02em;
       }
       .header-btn {
         background: none;
         border: none;
-        color: rgba(255,255,255,0.75);
+        color: rgba(255,255,255,0.7);
         cursor: pointer;
         width: 32px;
         height: 32px;
-        border-radius: 8px;
+        border-radius: 10px;
         display: flex;
         align-items: center;
         justify-content: center;
         transition: background 0.15s, color 0.15s;
       }
-      .header-btn:hover { background: rgba(255,255,255,0.15); color: #fff; }
+      .header-btn:hover { background: rgba(255,255,255,0.18); color: #fff; }
       .header-btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
       .messages {
@@ -375,23 +383,23 @@ import type { ChatbotConfig, ChatMessage } from "./types";
       }
 
       .input-area {
-        padding: 12px 16px 16px;
+        padding: 12px 16px 18px;
         flex-shrink: 0;
         background: var(--bg);
       }
       .input-area input {
         width: 100%;
-        padding: 12px 18px;
-        border: 2px solid var(--border);
+        padding: 12px 20px;
+        border: 1.5px solid var(--border);
         border-radius: 999px;
         outline: none;
         font-size: 14px;
         font-family: var(--font);
-        background: var(--bg);
+        background: var(--bg-secondary);
         color: var(--text);
-        transition: border-color 0.2s, box-shadow 0.2s;
+        transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
       }
-      .input-area input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(96,60,153,0.08); }
+      .input-area input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(96,60,153,0.1); background: var(--bg); }
       .input-area input::placeholder { color: var(--text-secondary); }
     `;
     shadow.appendChild(styles);
@@ -432,6 +440,7 @@ import type { ChatbotConfig, ChatMessage } from "./types";
     function togglePanel() {
       open = !open;
       panel.classList.toggle("open", open);
+      toggleBtn.classList.toggle("hidden", open);
       toggleBtn.setAttribute("aria-label", open ? "Close chat" : "Open chat");
       if (open) input.focus();
     }
