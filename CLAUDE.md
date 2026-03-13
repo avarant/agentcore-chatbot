@@ -52,7 +52,13 @@ apps/web/           Next.js frontend (static export)
     dashboard/      Auth-gated: widget demo, snippet, conversation history
     docs/           MDX documentation pages
 
-packages/chatbot-snippet/   Embeddable JS widget (IIFE, Shadow DOM)
+packages/chatbot-snippet/   Embeddable JS widget (IIFE, Shadow DOM, SSE streaming, markdown)
+
+scripts/                    Deploy scripts
+  deploy-all.sh             Deploy widget + agent + dashboard
+  deploy-agent.sh           CodeBuild → unique tag → terraform apply
+  deploy-dashboard.sh       Build API + deploy Lambda, --frontend for UI
+  deploy-widget.sh          Build widget → S3 + CloudFront invalidation
 
 docs/
   getting-started.md  Full setup walkthrough
@@ -97,7 +103,7 @@ demo/terraform/     Full dashboard + demo stack
 | `project_name` | `agent77` | Resource name prefix |
 | `agentcore_model_id` | `anthropic.claude-sonnet-4-6` | Bedrock model |
 | `enable_agentcore` | `true` | Provision AgentCore |
-| `agentcore_image_tag` | `latest` | Docker image tag |
+| `agentcore_image_tag` | `latest` | Docker image tag (use unique tags like `deploy-<timestamp>` to force re-pull) |
 | `agent_system_prompt` | `"You are a helpful assistant..."` | System prompt managed via Bedrock Prompt Management |
 | `oidc_discovery_url` | `""` | OIDC discovery URL for AgentCore JWT validation |
 | `oidc_allowed_audience` | `""` | Allowed audience (client ID) for OIDC validation |
@@ -117,6 +123,24 @@ demo/terraform/     Full dashboard + demo stack
 
 ## Build & Deploy
 
+### Deploy scripts (recommended)
+
+```bash
+# Deploy everything (widget + agent + dashboard API)
+./scripts/deploy-all.sh
+
+# Deploy everything including dashboard frontend
+./scripts/deploy-all.sh --frontend
+
+# Deploy individual components
+./scripts/deploy-widget.sh        # Build widget → S3 + CloudFront invalidation
+./scripts/deploy-agent.sh         # CodeBuild → unique tag → terraform apply
+./scripts/deploy-dashboard.sh     # Build API → deploy Lambda
+./scripts/deploy-dashboard.sh --frontend  # + build/upload frontend
+```
+
+### Manual deploy
+
 ```bash
 # 1. Install
 pnpm install
@@ -125,50 +149,21 @@ pnpm install
 cd terraform && terraform init && terraform apply
 # Outputs: agentcore_runtime_url, agentcore_memory_id, widget_url
 
-# 3. Build API
-cd apps/api && pnpm build
-
-# 4. Build frontend
-cd apps/web
-NEXT_PUBLIC_API_URL="" \
-NEXT_PUBLIC_COGNITO_DOMAIN=<from demo terraform output: cognito_domain> \
-NEXT_PUBLIC_COGNITO_CLIENT_ID=<from demo terraform output: cognito_client_id> \
-NEXT_PUBLIC_AUTH_CALLBACK_URL=<demo_url>/api/auth/callback \
-NEXT_PUBLIC_RUNTIME_URL=<agentcore_runtime_url> \
-NEXT_PUBLIC_WIDGET_URL=<widget_url from main terraform output> \
-npx next build
-
-# 5. Build widget
-cd packages/chatbot-snippet && npm run build
-
-# 6. Deploy demo stack
+# 3. Deploy demo stack
 cd demo/terraform && terraform init && terraform apply \
   -var='agentcore_runtime_url=<from main output>' \
   -var='agentcore_memory_id=<from main output>'
-
-# 7. Upload widget to CDN
-cd terraform && eval $(terraform output -raw deploy_widget_command)
-
-# 8. Upload frontend to demo S3
-cd demo/terraform && eval $(terraform output -raw deploy_frontend_command)
-
-# --- Optional: Deploy dashboard in main stack ---
-
-# 9. Enable dashboard API only (API key access)
-cd terraform && terraform apply \
-  -var='enable_dashboard=true' \
-  -var='dashboard_api_key=<your-secret-key>'
-# Access: curl -H 'X-API-Key: <key>' <dashboard_api_url>/api/conversations?user_id=<email>
-
-# 10. Enable dashboard UI (adds Cognito + S3 + CloudFront)
-cd terraform && terraform apply \
-  -var='enable_dashboard=true' \
-  -var='enable_dashboard_ui=true' \
-  -var='dashboard_api_key=<your-secret-key>'
-# Upload frontend: eval $(terraform output -raw deploy_dashboard_frontend_command)
 ```
 
-Agent container is built/deployed automatically by Terraform via CodeBuild.
+### Agent deploy pattern
+
+**Important**: AgentCore caches Docker images by tag. Using `latest` won't force a re-pull. The deploy script (`scripts/deploy-agent.sh`) handles this by:
+1. Triggering CodeBuild to build the image
+2. Tagging with a unique ID (`deploy-<timestamp>`)
+3. Updating `terraform/terraform.tfvars` with the new tag
+4. Running `terraform apply` to update the runtime
+
+**Never use `aws bedrockagentcore update-agent-runtime` CLI** — it wipes all unspecified config (env vars, authorizer). Always use `terraform apply`.
 
 ## Auth Flows
 
@@ -188,19 +183,20 @@ The widget calls AgentCore directly (no Lambda proxy):
 1. Widget fetches JWT from token endpoint (`data-token-url` attribute)
 2. Widget POSTs to AgentCore runtime URL with `Authorization: Bearer <jwt>` and `X-Amzn-Bedrock-AgentCore-Runtime-Session-Id` header
 3. AgentCore validates JWT against OIDC discovery URL (configured via `oidc_discovery_url` terraform variable)
-4. AgentCore routes to container → `agent.py` (MCP client)
-5. Agent processes prompt via Claude, with conversation memory via `AgentCoreMemorySessionManager`
-6. Response streamed back as JSON (`{"status": "success", "response": "..."}`)
-7. Widget parses JSON and displays the `response` field
+4. AgentCore passes the `Authorization` header through to the container (requires `request_header_configuration` in `agentcore.tf`)
+5. Agent extracts user identity from the JWT server-side via `context.request_headers` (decodes the token to get email/sub claim)
+6. Agent processes prompt via Claude, with conversation memory via `AgentCoreMemorySessionManager` (actor_id = sanitized email)
+7. Response streamed back as SSE (`data: {"chunk": "..."}` lines)
+8. Widget parses SSE stream and renders markdown incrementally
 
 ## Conversation Memory
 
 - **AgentCore Memory**: managed service for persisting conversations across sessions
 - Terraform resources: `aws_bedrockagentcore_memory` + `aws_bedrockagentcore_memory_strategy` (SUMMARIZATION)
 - Agent uses `AgentCoreMemorySessionManager` from `bedrock_agentcore.memory` (Strands SDK integration)
-- `session_id` and `user_id` passed in request body from widget
+- **Actor ID**: extracted server-side from JWT (email or sub claim) — never passed from client
 - **Actor ID constraint**: AgentCore requires `[a-zA-Z0-9][a-zA-Z0-9-_/]*` — emails must be sanitized (replace `@`/`.` with `_`)
-- Conversation history API: `GET /api/conversations` (list sessions), `GET /api/conversations/:sessionId` (view messages)
+- **Conversation history API**: `GET /api/conversations` lists all actors via `ListActorsCommand` then all sessions (admin view), `GET /api/conversations/:sessionId` views messages
 
 ## Current State
 
@@ -210,7 +206,7 @@ The widget calls AgentCore directly (no Lambda proxy):
 - AgentCore: container-based deploy (ECR + CodeBuild), Claude Sonnet 4.6, system prompt via Bedrock Prompt Management
 - Auth: AgentCore validates JWTs via configurable OIDC (`oidc_discovery_url` variable)
 - Memory: conversation persistence across turns via AgentCore Memory
-- Widget: hosted on dedicated CDN (main stack), parses JSON responses from AgentCore
+- Widget: hosted on dedicated CDN (main stack), SSE streaming with markdown rendering, pill input UI
 - MCP integration: built but needs end-to-end testing with a real MCP server
 
 ## Conventions
@@ -219,9 +215,10 @@ The widget calls AgentCore directly (no Lambda proxy):
 - `count = var.enable_agentcore ? 1 : 0` pattern for optional resources in main stack
 - `count = local.enable_dashboard` / `local.enable_dashboard_ui` for dashboard resources
 - Lambda env vars: `AGENTCORE_RUNTIME_URL` (direct HTTP URL), `AGENTCORE_MEMORY_ID`, `DASHBOARD_URL`, `DASHBOARD_API_KEY`
-- esbuild for all JS bundling (API + snippet), with `--external:@aws-sdk/*`
+- esbuild for all JS bundling (API + snippet), with `--external:@aws-sdk/*` (except `@aws-sdk/client-bedrock-agentcore` which must be bundled — not in Lambda runtime)
 - All API routes under `/api/*`, proxied by CloudFront to Lambda Function URL
 - AgentCore `authorizer_configuration` uses dynamic block — only added when `oidc_discovery_url` is set
+- AgentCore `request_header_configuration` allowlists `Authorization` header so the container can extract JWT identity
 - Dashboard API auth: `dashboardAuth` middleware tries `X-API-Key` first, then Cognito JWT
 - Auth routes (`/callback`, `/logout`, `/me`) return 404 when Cognito not configured
 - CORS defaults to `"*"` when `DASHBOARD_URL` not set (API key access is server-to-server)
