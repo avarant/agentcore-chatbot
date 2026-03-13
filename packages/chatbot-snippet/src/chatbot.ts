@@ -90,18 +90,69 @@ import type { ChatbotConfig, ChatMessage } from "./types";
     const body = response.body;
     if (!body) {
       const text = await response.text();
-      onChunk(text);
+      // Handle legacy JSON response
+      try {
+        const parsed = JSON.parse(text);
+        onChunk(parsed.response || parsed.body || text);
+      } catch {
+        onChunk(text);
+      }
       return;
     }
 
     const reader = body.getReader();
     const decoder = new TextDecoder();
+    let buffer = "";
 
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-      const chunk = decoder.decode(value, { stream: true });
-      onChunk(chunk);
+      buffer += decoder.decode(value, { stream: true });
+
+      // Parse SSE lines from buffer
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || ""; // keep incomplete last line in buffer
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (trimmed.startsWith("data: ")) {
+          const raw = trimmed.slice(6);
+          // SSE data may be a JSON-encoded string — unwrap quotes and escapes
+          try {
+            const parsed = JSON.parse(raw);
+            onChunk(typeof parsed === "string" ? parsed : (parsed.response || parsed.body || raw));
+          } catch {
+            onChunk(raw);
+          }
+        } else if (trimmed && !trimmed.startsWith(":")) {
+          try {
+            const parsed = JSON.parse(trimmed);
+            onChunk(typeof parsed === "string" ? parsed : (parsed.response || parsed.body || trimmed));
+          } catch {
+            onChunk(trimmed);
+          }
+        }
+      }
+    }
+    // Process remaining buffer
+    if (buffer.trim()) {
+      const trimmed = buffer.trim();
+      if (trimmed.startsWith("data: ")) {
+        const raw = trimmed.slice(6);
+        try {
+          const parsed = JSON.parse(raw);
+          onChunk(typeof parsed === "string" ? parsed : (parsed.response || parsed.body || raw));
+        } catch {
+          onChunk(raw);
+        }
+      } else {
+        try {
+          const parsed = JSON.parse(trimmed);
+          onChunk(typeof parsed === "string" ? parsed : (parsed.response || parsed.body || trimmed));
+        } catch {
+          onChunk(trimmed);
+        }
+      }
     }
   }
 
@@ -356,17 +407,7 @@ import type { ChatbotConfig, ChatMessage } from "./types";
           botEl.textContent = accumulated;
           messagesEl.scrollTop = messagesEl.scrollHeight;
         });
-        // Try to extract response from JSON
-        let finalText = accumulated;
-        try {
-          const parsed = JSON.parse(accumulated);
-          finalText = parsed.response || parsed.body || accumulated;
-        } catch {
-          // Not JSON — use raw text
-        }
-        botEl.textContent = finalText;
-        // Update stored message content
-        messages[messages.length - 1].content = finalText;
+        messages[messages.length - 1].content = accumulated;
       } catch (err) {
         botEl.textContent = "Something went wrong. Please try again.";
         messages[messages.length - 1].content = botEl.textContent;

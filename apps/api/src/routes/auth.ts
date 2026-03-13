@@ -4,6 +4,20 @@ import { validateJwt } from "../lib/auth";
 
 export const authRoutes = new Hono<Env>();
 
+authRoutes.get("/login", (c) => {
+  const cognitoDomain = process.env.COGNITO_DOMAIN;
+  const clientId = process.env.COGNITO_CLIENT_ID;
+  if (!cognitoDomain || !clientId) {
+    return c.json({ error: "UI auth not configured" }, 404);
+  }
+  const dashboardUrl = process.env.DASHBOARD_URL || "";
+  const redirectUri = dashboardUrl
+    ? `${dashboardUrl}/api/auth/callback`
+    : "http://localhost:3000/api/auth/callback";
+  const loginUrl = `${cognitoDomain}/login?client_id=${clientId}&response_type=code&scope=${encodeURIComponent("openid email profile")}&redirect_uri=${encodeURIComponent(redirectUri)}`;
+  return c.redirect(loginUrl);
+});
+
 authRoutes.get("/callback", async (c) => {
   const cognitoDomain = process.env.COGNITO_DOMAIN;
   const clientId = process.env.COGNITO_CLIENT_ID;

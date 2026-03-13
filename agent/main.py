@@ -46,7 +46,7 @@ SYSTEM_PROMPT = _fetch_prompt()
 
 @app.entrypoint
 async def invoke(payload=None):
-    """Main entrypoint for the agent"""
+    """Main entrypoint for the agent — streams text chunks via SSE"""
     try:
         query = (
             payload.get("prompt", payload.get("message", "Hello!"))
@@ -67,20 +67,24 @@ async def invoke(payload=None):
                     system_prompt=SYSTEM_PROMPT,
                     name="Agent77",
                     session_manager=session_manager,
+                    callback_handler=None,
                 )
-                response = agent(query)
+                async for event in agent.stream_async(query):
+                    if "data" in event:
+                        yield event["data"]
         else:
-            # Fallback: no memory configured
             agent = Agent(
                 system_prompt=SYSTEM_PROMPT,
                 name="Agent77",
+                callback_handler=None,
             )
-            response = agent(query)
-
-        return {"status": "success", "response": response.message["content"][0]["text"]}
+            async for event in agent.stream_async(query):
+                if "data" in event:
+                    yield event["data"]
 
     except Exception as e:
-        return {"status": "error", "error": str(e)}
+        logger.exception("Agent invocation failed")
+        yield f"Sorry, something went wrong: {e}"
 
 
 if __name__ == "__main__":
