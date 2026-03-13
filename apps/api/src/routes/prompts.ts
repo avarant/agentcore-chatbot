@@ -27,11 +27,12 @@ promptRoutes.get("/", async (c) => {
   );
 
   const variant = result.variants?.[0];
-  const templateConfig = variant?.templateConfiguration;
-  const textConfig = templateConfig && "text" in templateConfig ? templateConfig.text : undefined;
+  const templateConfig = variant?.templateConfiguration as Record<string, unknown> | undefined;
+  const textBlock = templateConfig?.text as Record<string, unknown> | undefined;
+  const promptText = (textBlock?.text as string) ?? "";
 
   return c.json({
-    text: textConfig?.text || "",
+    text: promptText,
     name: result.name,
     description: result.description,
   });
