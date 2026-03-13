@@ -54,6 +54,22 @@ terraform init && terraform apply
 
 Then uncomment the `backend "s3"` block in `terraform/main.tf` and re-run `terraform init`.
 
+### Optional: Knowledge Base
+
+To enable document retrieval (upload docs via dashboard, agent answers from them):
+
+```bash
+# Add to terraform.tfvars:
+enable_knowledge_base = true
+```
+
+Then re-run `terraform apply`. This provisions:
+- **S3 bucket** for document uploads
+- **S3 Vectors** bucket + index for embeddings
+- **Bedrock Knowledge Base** with Titan Embed V2
+
+After deploying, rebuild the agent (`./scripts/deploy-agent.sh`) so it picks up the `KNOWLEDGE_BASE_ID` env var and loads the `retrieve` tool. Upload documents via the dashboard's Documents page — they're automatically embedded and available to the agent.
+
 ## 3. Deploy the widget
 
 Build the widget and upload it to the CDN:

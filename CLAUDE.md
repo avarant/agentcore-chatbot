@@ -5,13 +5,14 @@ Self-hosted AI chatbot platform on AWS. Lets site owners deploy an AI chat widge
 ## Architecture
 
 ```
-Main Stack (terraform/) — AgentCore + Widget CDN + optional Dashboard
+Main Stack (terraform/) — AgentCore + Widget CDN + optional Dashboard + optional KB
 ├── ECR repository + CodeBuild (Docker image)
 ├── AgentCore Runtime (container-based agent)
 ├── AgentCore Memory (conversation persistence)
 ├── S3 + CloudFront ── widget.js CDN (CORS-enabled)
 ├── [optional] Lambda Function URL ── Dashboard API (Hono, apps/api)
-└── [optional] Cognito + S3 + CloudFront ── Dashboard UI
+├── [optional] Cognito + S3 + CloudFront ── Dashboard UI
+└── [optional] Bedrock Knowledge Base + S3 Vectors + S3 docs bucket
 
 Demo Stack (demo/terraform/) — Full dashboard + demo
 ├── Cognito ────────── User pool + OAuth client
@@ -20,7 +21,7 @@ Demo Stack (demo/terraform/) — Full dashboard + demo
 └── /api/* ─────────── auth, token, conversations
 
 AgentCore Runtime (container on ECR)
-├── main.py ── strands Agent (simple assistant)
+├── main.py ── strands Agent (simple assistant, optional KB retrieve tool)
 └── agent.py ── production agent (MCP client, Claude tool loop, JWT passthrough)
 ```
 
@@ -39,17 +40,18 @@ AgentCore Runtime (container on ECR)
 ```
 apps/api/           Lambda API (Hono)
   src/routes/
-    auth.ts         Cognito OAuth callback, /me, /token (GET+POST) — guarded when Cognito not configured
+    auth.ts         Cognito OAuth callback, /me, /token (GET+POST) — derives dashboard URL from X-Forwarded-Host
     conversations.ts  Conversation history (list sessions, view messages) — supports API key + Cognito auth
+    documents.ts    KB document upload (presigned URLs), list, delete, sync — gated on KB_DOCS_BUCKET env var
   src/lib/
     auth.ts         dashboardAuth middleware (API key → Cognito JWT fallback), validateJwt
-  src/types.ts      Env type (optional Cognito bindings, authMode variable)
+  src/types.ts      Env type (optional Cognito bindings, KB bindings, authMode variable)
 
 apps/web/           Next.js frontend (static export)
   src/app/
     page.tsx        Landing page (features, hero)
     login/          Cognito redirect
-    dashboard/      Auth-gated: widget demo, snippet, conversation history
+    dashboard/      Auth-gated: widget demo, snippet, conversation history, documents
     docs/           MDX documentation pages
 
 packages/chatbot-snippet/   Embeddable JS widget (IIFE, Shadow DOM, SSE streaming, markdown)
@@ -66,19 +68,20 @@ docs/
   local-development.md  Local dev environment
 
 agent/
-  main.py           Strands Agent entrypoint (BedrockAgentCoreApp)
+  main.py           Strands Agent entrypoint (BedrockAgentCoreApp, optional KB retrieve tool)
   agent.py          Production agent (MCP client, Claude tool loop)
   Dockerfile        Python 3.11-slim, opentelemetry, non-root user
-  requirements.txt  strands-agents, boto3, bedrock-agentcore
+  requirements.txt  strands-agents, strands-agents-tools, boto3, bedrock-agentcore
 
 terraform/          Main stack (AgentCore + optional dashboard)
   main.tf           Provider (aws ~>6.0, archive, null), backend, locals
   agentcore.tf      ECR + CodeBuild + AgentCore Runtime + Memory + Prompt + IAM
   widget.tf         S3 + CloudFront CDN for embeddable widget (CORS)
   dashboard.tf      [optional] Lambda API + Function URL (gated on enable_dashboard)
-  dashboard_ui.tf   [optional] Cognito + S3 + CloudFront (gated on enable_dashboard_ui)
-  variables.tf      Input variables (incl. dashboard, oidc vars)
-  outputs.tf        AgentCore URLs, resource IDs, widget CDN URL, dashboard outputs
+  dashboard_ui.tf   [optional] Cognito + S3 + CloudFront + CF Functions (gated on enable_dashboard_ui)
+  knowledge_base.tf [optional] Bedrock KB + S3 Vectors + S3 docs bucket (gated on enable_knowledge_base)
+  variables.tf      Input variables (incl. dashboard, oidc, KB vars)
+  outputs.tf        AgentCore URLs, resource IDs, widget CDN URL, dashboard outputs, KB outputs
   buildspec.yml     Docker build spec (ARM64)
   scripts/
     build-image.sh  Trigger CodeBuild, wait, verify ECR image
@@ -111,6 +114,7 @@ demo/terraform/     Full dashboard + demo stack
 | `enable_dashboard_ui` | `false` | Provision dashboard UI (Cognito + S3 + CloudFront), requires `enable_dashboard` |
 | `dashboard_api_key` | `""` | API key for `X-API-Key` header auth (sensitive) |
 | `dashboard_domain` | `""` | Custom domain for dashboard CloudFront |
+| `enable_knowledge_base` | `false` | Provision Bedrock Knowledge Base with S3 Vectors for document retrieval |
 
 ### Demo stack (demo/terraform/)
 
@@ -198,6 +202,34 @@ The widget calls AgentCore directly (no Lambda proxy):
 - **Actor ID constraint**: AgentCore requires `[a-zA-Z0-9][a-zA-Z0-9-_/]*` — emails must be sanitized (replace `@`/`.` with `_`)
 - **Conversation history API**: `GET /api/conversations` lists all actors via `ListActorsCommand` then all sessions (admin view), `GET /api/conversations/:sessionId` views messages
 
+## Knowledge Base (Document Retrieval)
+
+Optional feature gated on `enable_knowledge_base = true`. Lets users upload documents through the dashboard, auto-embed them via Bedrock, and make them available to the agent.
+
+**Flow:** Dashboard upload → S3 presigned URL → S3 docs bucket → Bedrock ingestion job → S3 Vectors (embeddings) → agent `retrieve` tool → grounded answers
+
+**Infrastructure** (`terraform/knowledge_base.tf`):
+- S3 bucket for document uploads (`${name_prefix}-kb-docs-${account_id}`)
+- S3 Vectors: vector bucket + index (float32, 1024 dims, cosine distance, Titan Embed V2)
+- Bedrock Knowledge Base (VECTOR type) with S3 data source (fixed-size chunking: 512 tokens, 20% overlap)
+- IAM role for Bedrock KB service (S3 read, S3 Vectors access, embedding model invoke)
+
+**Agent** (`agent/main.py`):
+- Uses `retrieve` tool from `strands-agents-tools` when `KNOWLEDGE_BASE_ID` env var is set
+- Tool reads `KNOWLEDGE_BASE_ID` and `AWS_REGION` automatically
+
+**Dashboard API** (`apps/api/src/routes/documents.ts`):
+- `GET /api/documents` — list documents in S3 bucket
+- `POST /api/documents/upload` — generate presigned S3 URL for client-side upload
+- `POST /api/documents/sync` — trigger Bedrock ingestion job
+- `GET /api/documents/sync-status/:jobId` — poll ingestion job status
+- `DELETE /api/documents/:key` — delete document from S3
+
+**Dashboard UI** (`apps/web/src/app/dashboard/documents/page.tsx`):
+- Drag & drop file upload via presigned URLs
+- Document list with size, date, delete
+- Auto-sync after upload with status indicator
+
 ## Current State
 
 - Infrastructure: fully deployed, working
@@ -207,6 +239,7 @@ The widget calls AgentCore directly (no Lambda proxy):
 - Auth: AgentCore validates JWTs via configurable OIDC (`oidc_discovery_url` variable)
 - Memory: conversation persistence across turns via AgentCore Memory
 - Widget: hosted on dedicated CDN (main stack), SSE streaming with markdown rendering, pill input UI
+- Knowledge Base: optional, S3 Vectors storage, document upload via dashboard, agent retrieval via `retrieve` tool
 - MCP integration: built but needs end-to-end testing with a real MCP server
 
 ## Conventions
@@ -214,13 +247,16 @@ The widget calls AgentCore directly (no Lambda proxy):
 - Terraform resources use `local.name_prefix` (`var.project_name`) as prefix
 - `count = var.enable_agentcore ? 1 : 0` pattern for optional resources in main stack
 - `count = local.enable_dashboard` / `local.enable_dashboard_ui` for dashboard resources
-- Lambda env vars: `AGENTCORE_RUNTIME_URL` (direct HTTP URL), `AGENTCORE_MEMORY_ID`, `DASHBOARD_URL`, `DASHBOARD_API_KEY`
+- Lambda env vars: `AGENTCORE_RUNTIME_URL` (direct HTTP URL), `AGENTCORE_MEMORY_ID`, `DASHBOARD_API_KEY`, plus optional `KB_DOCS_BUCKET`, `KNOWLEDGE_BASE_ID`, `KB_DATA_SOURCE_ID`
 - esbuild for all JS bundling (API + snippet), with `--external:@aws-sdk/*` (except `@aws-sdk/client-bedrock-agentcore` which must be bundled — not in Lambda runtime)
 - All API routes under `/api/*`, proxied by CloudFront to Lambda Function URL
 - AgentCore `authorizer_configuration` uses dynamic block — only added when `oidc_discovery_url` is set
 - AgentCore `request_header_configuration` allowlists `Authorization` header so the container can extract JWT identity
 - Dashboard API auth: `dashboardAuth` middleware tries `X-API-Key` first, then Cognito JWT
 - Auth routes (`/callback`, `/logout`, `/me`) return 404 when Cognito not configured
-- CORS defaults to `"*"` when `DASHBOARD_URL` not set (API key access is server-to-server)
-- Demo Lambda derives `DASHBOARD_URL` from env var (set via null_resource after CloudFront deploys)
+- CORS origin is dynamic — reflects the request's `Origin` header (no hardcoded `DASHBOARD_URL`)
+- Dashboard URL derived at runtime from `X-Forwarded-Host` header (set by CloudFront Function), not from env vars
+- `count = local.enable_kb` for knowledge base resources
+- S3 Vectors metadata: `AMAZON_BEDROCK_TEXT` and `AMAZON_BEDROCK_METADATA` must be in `non_filterable_metadata_keys` (2048 byte filterable limit)
+- Cognito callback URLs use `terraform_data` provisioner (not `null_resource`) to break circular dependency with CloudFront
 - `.gitignore` uses `**` glob patterns for terraform files (covers both `terraform/` and `demo/terraform/`)

@@ -49,9 +49,9 @@ Your token endpoint must:
 4. The `iss` must match the OIDC discovery URL's issuer
 5. The `aud` must match `oidc_allowed_audience`
 
-## Demo stack auth flow
+## Dashboard auth flow
 
-The demo stack uses Cognito with this flow:
+The dashboard (main stack or demo) uses Cognito with this flow:
 
 ```
 User → /login → Cognito hosted UI → /api/auth/callback → httpOnly cookie → /dashboard
@@ -60,6 +60,8 @@ User → /login → Cognito hosted UI → /api/auth/callback → httpOnly cookie
 - `/api/auth/callback` exchanges the Cognito auth code for tokens and sets an httpOnly cookie
 - `/api/auth/token` returns the user's access token (used by the widget)
 - `/api/auth/me` returns the current user profile
+
+The dashboard URL is derived at runtime from the `X-Forwarded-Host` header (set by a CloudFront Function), not from an environment variable. This avoids circular dependencies between Lambda, CloudFront, and Cognito in Terraform.
 
 ## Session management
 

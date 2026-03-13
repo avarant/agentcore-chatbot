@@ -39,9 +39,12 @@ The frontend proxies `/api/*` requests to the local API server.
 - Cognito login/logout (redirects to hosted UI and back to localhost)
 - Widget demo (loads from CDN, talks directly to AgentCore)
 - Conversation history (API reads from AgentCore Memory)
+- Document management (upload, list, delete, sync) — requires `KB_DOCS_BUCKET`, `KNOWLEDGE_BASE_ID`, `KB_DATA_SOURCE_ID` env vars
 
 ## What requires AWS
 
 - The chat widget always connects directly to AgentCore (no local agent)
 - Conversation memory is always remote (AgentCore Memory service)
 - Auth tokens are validated by AgentCore against the OIDC provider
+- Document uploads go to S3 via presigned URLs (requires AWS credentials)
+- Knowledge Base ingestion runs on Bedrock (no local equivalent)
