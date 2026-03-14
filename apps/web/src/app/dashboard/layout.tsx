@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { CustomerContext, type User } from "./customer-context";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Settings, MessageSquare, LogOut, Bot, FileText, BookOpen } from "lucide-react";
+import { Settings, MessageSquare, LogOut, BookOpen, Database } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 const COGNITO_DOMAIN = process.env.NEXT_PUBLIC_COGNITO_DOMAIN || "";
@@ -16,8 +16,8 @@ const LOGIN_URL = `${COGNITO_DOMAIN}/login?response_type=code&client_id=${CLIENT
 
 const NAV_ITEMS = [
   { href: "/dashboard/conversations", label: "Conversations", icon: MessageSquare },
-  { href: "/dashboard/documents", label: "Documents", icon: FileText },
-  { href: "/dashboard/prompts", label: "Prompts", icon: BookOpen },
+  { href: "/dashboard/prompt", label: "Prompt", icon: BookOpen },
+  { href: "/dashboard/knowledge-base", label: "Knowledge Base", icon: Database },
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
 ];
 
@@ -82,8 +82,7 @@ export default function DashboardLayout({
         <aside className="fixed inset-y-0 left-0 z-40 flex w-60 flex-col border-r bg-card">
           {/* Brand */}
           <div className="flex items-center gap-2 px-5 py-5">
-            <Bot className="size-5" />
-            <span className="text-lg font-bold tracking-tight">Agent77</span>
+            <span className="text-xl font-bold italic tracking-tight bg-gradient-to-r from-violet-500 via-fuchsia-500 to-pink-500 bg-clip-text text-transparent">agent77</span>
           </div>
 
           <Separator />
@@ -134,8 +133,8 @@ export default function DashboardLayout({
         </aside>
 
         {/* Main content */}
-        <main className="ml-60 flex-1 p-6 lg:p-8">
-          <div className="mx-auto max-w-screen-2xl">{children}</div>
+        <main className="ml-60 flex-1 flex flex-col h-screen overflow-hidden p-6 lg:p-8">
+          <div className="mx-auto w-full max-w-screen-2xl flex-1 overflow-auto">{children}</div>
         </main>
       </div>
     </CustomerContext.Provider>

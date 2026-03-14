@@ -195,7 +195,7 @@ export default function DocumentsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Documents</h1>
+        <h1 className="text-2xl font-bold">Knowledge Base</h1>
         <div className="flex items-center gap-2">
           {syncStatus === "syncing" && (
             <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
