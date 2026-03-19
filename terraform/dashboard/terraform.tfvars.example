@@ -1,0 +1,28 @@
+aws_region   = "us-east-1"
+project_name = "agent77"
+environment  = "prod"
+
+enable_dashboard_ui = true
+dashboard_api_key   = "change-me"
+
+# Add one entry per deployed agent stack.
+# Copy values from: cd terraform/agent && terraform output site_config
+sites = [
+  {
+    id                = "acme-storefront"
+    name              = "Acme Storefront"
+    prompt_id         = ""   # from agent stack: terraform output agent_prompt_id
+    memory_id         = ""   # from agent stack: terraform output agentcore_memory_id
+    runtime_url       = ""   # from agent stack: terraform output agentcore_runtime_url
+    kb_id             = ""   # leave empty if knowledge base not enabled
+    kb_data_source_id = ""
+    kb_bucket         = ""
+  },
+  # {
+  #   id          = "acme-support"
+  #   name        = "Acme Support"
+  #   prompt_id   = ""
+  #   memory_id   = ""
+  #   runtime_url = ""
+  # },
+]

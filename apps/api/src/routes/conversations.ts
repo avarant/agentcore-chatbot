@@ -8,6 +8,7 @@ import {
 } from "@aws-sdk/client-bedrock-agentcore";
 import type { Env } from "../types";
 import { dashboardAuth } from "../lib/auth";
+import { getSite } from "../lib/sites";
 
 export const conversationRoutes = new Hono<Env>();
 
@@ -24,7 +25,8 @@ function sanitizeActorId(email: string): string {
 
 // List all sessions (paginated, sorted by most recent)
 conversationRoutes.get("/", async (c) => {
-  const memoryId = process.env.AGENTCORE_MEMORY_ID;
+  const site = getSite(c.req.query("site"));
+  const memoryId = site?.memoryId;
   if (!memoryId) {
     return c.json({ error: "Memory not configured" }, 503);
   }
@@ -122,7 +124,8 @@ conversationRoutes.get("/", async (c) => {
 
 // Get messages for a specific session
 conversationRoutes.get("/:sessionId", async (c) => {
-  const memoryId = process.env.AGENTCORE_MEMORY_ID;
+  const site = getSite(c.req.query("site"));
+  const memoryId = site?.memoryId;
   if (!memoryId) {
     return c.json({ error: "Memory not configured" }, 503);
   }

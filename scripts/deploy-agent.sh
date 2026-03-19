@@ -2,13 +2,33 @@
 set -euo pipefail
 
 # Build agent container, tag with unique ID, and deploy via terraform
-# Usage: ./scripts/deploy-agent.sh
+# Usage: ./scripts/deploy-agent.sh [--tf-dir terraform/agent]
+#
+# Uses terraform/agent/ if it has a terraform.tfvars file,
+# otherwise falls back to the legacy terraform/ directory.
 
 cd "$(dirname "$0")/.."
 
 REGION="us-east-1"
 PROJECT_NAME="agent77-agent-build"
 ECR_REPO="agent77-agent"
+
+# Allow explicit --tf-dir override
+TF_DIR=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --tf-dir) TF_DIR="$2"; shift 2 ;;
+    *) shift ;;
+  esac
+done
+
+if [[ -z "$TF_DIR" ]]; then
+  if [[ -f "terraform/agent/terraform.tfvars" ]]; then
+    TF_DIR="terraform/agent"
+  else
+    TF_DIR="terraform"
+  fi
+fi
 
 echo "Starting CodeBuild..."
 BUILD_ID=$(aws codebuild start-build \
@@ -42,12 +62,12 @@ aws ecr put-image \
   --image-tag "$TAG" --image-manifest "$MANIFEST" > /dev/null
 
 # Update terraform.tfvars with new tag
-echo "Updating terraform.tfvars with tag: $TAG"
-sed -i '' "s/agentcore_image_tag = \".*\"/agentcore_image_tag = \"$TAG\"/" terraform/terraform.tfvars
+echo "Updating $TF_DIR/terraform.tfvars with tag: $TAG"
+sed -i '' "s/agentcore_image_tag = \".*\"/agentcore_image_tag = \"$TAG\"/" "$TF_DIR/terraform.tfvars"
 
 # Apply via terraform (preserves env vars + authorizer)
-echo "Applying terraform..."
-cd terraform && terraform apply \
+echo "Applying terraform (from $TF_DIR)..."
+cd "$TF_DIR" && terraform apply \
   -target=aws_bedrockagentcore_agent_runtime.main \
   -auto-approve > /dev/null 2>&1
 

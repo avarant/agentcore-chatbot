@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
+import { useCustomer } from "../customer-context";
 import {
   Card,
   CardContent,
@@ -36,6 +37,7 @@ function formatFileSize(bytes: number): string {
 }
 
 export default function DocumentsPage() {
+  const { siteId } = useCustomer();
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -46,7 +48,9 @@ export default function DocumentsPage() {
   const fetchDocuments = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/documents`, {
+      const params = new URLSearchParams();
+      if (siteId) params.set("site", siteId);
+      const res = await fetch(`${API_URL}/api/documents?${params}`, {
         credentials: "include",
       });
       if (res.ok) {
@@ -62,13 +66,15 @@ export default function DocumentsPage() {
 
   useEffect(() => {
     fetchDocuments();
-  }, [fetchDocuments]);
+  }, [siteId, fetchDocuments]);
 
   async function uploadFile(file: File) {
     setUploading(true);
     try {
       // Get presigned URL
-      const res = await fetch(`${API_URL}/api/documents/upload`, {
+      const params = new URLSearchParams();
+      if (siteId) params.set("site", siteId);
+      const res = await fetch(`${API_URL}/api/documents/upload?${params}`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -103,7 +109,9 @@ export default function DocumentsPage() {
   async function triggerSync() {
     setSyncStatus("syncing");
     try {
-      const res = await fetch(`${API_URL}/api/documents/sync`, {
+      const params = new URLSearchParams();
+      if (siteId) params.set("site", siteId);
+      const res = await fetch(`${API_URL}/api/documents/sync?${params}`, {
         method: "POST",
         credentials: "include",
       });
@@ -128,8 +136,10 @@ export default function DocumentsPage() {
       await new Promise((r) => setTimeout(r, 3000));
 
       try {
+        const params = new URLSearchParams();
+        if (siteId) params.set("site", siteId);
         const res = await fetch(
-          `${API_URL}/api/documents/sync-status/${jobId}`,
+          `${API_URL}/api/documents/sync-status/${jobId}?${params}`,
           { credentials: "include" }
         );
         if (!res.ok) continue;
@@ -152,8 +162,10 @@ export default function DocumentsPage() {
 
   async function deleteDocument(key: string) {
     try {
+      const params = new URLSearchParams();
+      if (siteId) params.set("site", siteId);
       const res = await fetch(
-        `${API_URL}/api/documents/${encodeURIComponent(key)}`,
+        `${API_URL}/api/documents/${encodeURIComponent(key)}?${params}`,
         { method: "DELETE", credentials: "include" }
       );
       if (res.ok) {
@@ -166,8 +178,10 @@ export default function DocumentsPage() {
 
   async function viewDocument(key: string) {
     try {
+      const params = new URLSearchParams();
+      if (siteId) params.set("site", siteId);
       const res = await fetch(
-        `${API_URL}/api/documents/view/${encodeURIComponent(key)}`,
+        `${API_URL}/api/documents/view/${encodeURIComponent(key)}?${params}`,
         { credentials: "include" }
       );
       if (res.ok) {

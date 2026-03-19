@@ -7,14 +7,26 @@ export type User = {
   email: string;
 };
 
+export type Site = {
+  id: string;
+  name: string;
+  hasKnowledgeBase: boolean;
+};
+
 type CustomerContextType = {
   user: User | null;
   reload: () => Promise<void>;
+  sites: Site[];
+  siteId: string;
+  setSiteId: (id: string) => void;
 };
 
 export const CustomerContext = createContext<CustomerContextType>({
   user: null,
   reload: async () => {},
+  sites: [],
+  siteId: "",
+  setSiteId: () => {},
 });
 
 export function useCustomer() {

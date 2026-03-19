@@ -6,6 +6,8 @@ import { authRoutes } from "./routes/auth";
 import { conversationRoutes } from "./routes/conversations";
 import { documentRoutes } from "./routes/documents";
 import { promptRoutes } from "./routes/prompts";
+import { dashboardAuth } from "./lib/auth";
+import { listSites } from "./lib/sites";
 
 const app = new Hono<Env>();
 
@@ -21,6 +23,15 @@ app.route("/api/auth", authRoutes);
 app.route("/api/conversations", conversationRoutes);
 app.route("/api/documents", documentRoutes);
 app.route("/api/prompts", promptRoutes);
+
+app.get("/api/sites", dashboardAuth, (c) => {
+  const sites = listSites().map(({ id, name, kbBucket }) => ({
+    id,
+    name,
+    hasKnowledgeBase: !!kbBucket,
+  }));
+  return c.json({ sites });
+});
 
 app.get("/", (c) => c.json({ status: "ok", service: "agent77-api" }));
 

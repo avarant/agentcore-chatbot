@@ -1,0 +1,13 @@
+aws_region   = "us-east-1"
+project_name = "acme-storefront"   # unique per site
+environment  = "prod"
+
+enable_agentcore      = true
+agentcore_model_id    = "anthropic.claude-sonnet-4-6"
+agent_system_prompt   = "You are a helpful assistant for Acme Storefront."
+
+enable_knowledge_base = false
+
+# OIDC for widget JWT validation (from your dashboard stack outputs)
+oidc_discovery_url    = ""
+oidc_allowed_audience = ""

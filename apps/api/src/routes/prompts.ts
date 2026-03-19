@@ -6,6 +6,7 @@ import {
 } from "@aws-sdk/client-bedrock-agent";
 import type { Env } from "../types";
 import { dashboardAuth } from "../lib/auth";
+import { getSite } from "../lib/sites";
 
 export const promptRoutes = new Hono<Env>();
 
@@ -17,7 +18,7 @@ const bedrockAgent = new BedrockAgentClient({
 
 // Get current prompt
 promptRoutes.get("/", async (c) => {
-  const promptId = process.env.PROMPT_ID;
+  const promptId = getSite(c.req.query("site"))?.promptId;
   if (!promptId) {
     return c.json({ error: "Prompt not configured" }, 503);
   }
@@ -40,7 +41,7 @@ promptRoutes.get("/", async (c) => {
 
 // Update prompt text
 promptRoutes.put("/", async (c) => {
-  const promptId = process.env.PROMPT_ID;
+  const promptId = getSite(c.req.query("site"))?.promptId;
   if (!promptId) {
     return c.json({ error: "Prompt not configured" }, 503);
   }

@@ -3,16 +3,17 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CustomerContext, type User } from "./customer-context";
+import { CustomerContext, type User, type Site } from "./customer-context";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Settings, MessageSquare, LogOut, BookOpen, Database } from "lucide-react";
+import { Settings, MessageSquare, LogOut, BookOpen, Database, ChevronDown } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 const COGNITO_DOMAIN = process.env.NEXT_PUBLIC_COGNITO_DOMAIN || "";
 const CLIENT_ID = process.env.NEXT_PUBLIC_COGNITO_CLIENT_ID || "";
 const REDIRECT_URI = encodeURIComponent(process.env.NEXT_PUBLIC_AUTH_CALLBACK_URL || "");
 const LOGIN_URL = `${COGNITO_DOMAIN}/login?response_type=code&client_id=${CLIENT_ID}&redirect_uri=${REDIRECT_URI}&scope=${encodeURIComponent("openid email profile")}`;
+const SITE_ID_KEY = "agent77_site_id";
 
 const NAV_ITEMS = [
   { href: "/dashboard/conversations", label: "Conversations", icon: MessageSquare },
@@ -30,6 +31,15 @@ export default function DashboardLayout({
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [showSignOut, setShowSignOut] = useState(false);
+  const [sites, setSites] = useState<Site[]>([]);
+  const [siteId, setSiteIdState] = useState<string>("");
+  const [showSitePicker, setShowSitePicker] = useState(false);
+
+  const setSiteId = useCallback((id: string) => {
+    setSiteIdState(id);
+    try { localStorage.setItem(SITE_ID_KEY, id); } catch { /* ignore */ }
+    setShowSitePicker(false);
+  }, []);
 
   const reload = useCallback(async () => {
     try {
@@ -63,9 +73,26 @@ export default function DashboardLayout({
       });
   }, []);
 
+  useEffect(() => {
+    fetch(`${API_URL}/api/sites`, { credentials: "include" })
+      .then((res) => res.ok ? res.json() : null)
+      .then((data) => {
+        if (!data?.sites?.length) return;
+        const loaded: Site[] = data.sites;
+        setSites(loaded);
+
+        const saved = (() => { try { return localStorage.getItem(SITE_ID_KEY); } catch { return null; } })();
+        const initial = loaded.find((s) => s.id === saved) ? saved! : loaded[0].id;
+        setSiteIdState(initial);
+      })
+      .catch(() => {});
+  }, []);
+
   function handleLogout() {
     window.location.href = `${API_URL}/api/auth/logout`;
   }
+
+  const activeSite = sites.find((s) => s.id === siteId);
 
   if (loading) {
     return (
@@ -76,7 +103,7 @@ export default function DashboardLayout({
   }
 
   return (
-    <CustomerContext.Provider value={{ user, reload }}>
+    <CustomerContext.Provider value={{ user, reload, sites, siteId, setSiteId }}>
       <div className="flex min-h-screen">
         {/* Sidebar */}
         <aside className="fixed inset-y-0 left-0 z-40 flex w-60 flex-col border-r bg-card">
@@ -86,6 +113,34 @@ export default function DashboardLayout({
           </div>
 
           <Separator />
+
+          {/* Site switcher — only shown when >1 site */}
+          {sites.length > 1 && (
+            <div className="relative px-3 py-2">
+              <button
+                onClick={() => setShowSitePicker((v) => !v)}
+                className="flex w-full items-center justify-between rounded-md border bg-background px-3 py-2 text-sm hover:bg-accent transition-colors"
+              >
+                <span className="truncate font-medium">{activeSite?.name ?? siteId}</span>
+                <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
+              </button>
+              {showSitePicker && (
+                <div className="absolute left-3 right-3 top-full z-50 mt-1 rounded-md border bg-popover shadow-md">
+                  {sites.map((s) => (
+                    <button
+                      key={s.id}
+                      onClick={() => setSiteId(s.id)}
+                      className={`flex w-full items-center px-3 py-2 text-sm transition-colors hover:bg-accent ${
+                        s.id === siteId ? "font-medium text-foreground" : "text-muted-foreground"
+                      }`}
+                    >
+                      {s.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Nav */}
           <nav className="flex-1 space-y-1 px-3 py-4">

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { RefreshCw, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useCustomer } from "../customer-context";
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
 type Session = { session_id: string; actor_id: string; created_at: string; summary: string | null };
@@ -27,6 +28,7 @@ function displayActorId(actorId: string): string {
 }
 
 export default function ConversationsPage() {
+  const { siteId } = useCustomer();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -48,6 +50,7 @@ export default function ConversationsPage() {
     try {
       const params = new URLSearchParams({ limit: "20" });
       if (cursor) params.set("cursor", cursor);
+      if (siteId) params.set("site", siteId);
 
       const res = await fetch(`${API_URL}/api/conversations?${params}`, {
         credentials: "include",
@@ -82,10 +85,14 @@ export default function ConversationsPage() {
     }
   }, []);
 
-  // Auto-load sessions on mount
+  // Reload sessions when site changes
   useEffect(() => {
+    isInitialLoad.current = true;
+    setNextCursor(null);
+    setSelectedSession(null);
+    setHistoryMessages([]);
     fetchSessions();
-  }, [fetchSessions]);
+  }, [siteId, fetchSessions]);
 
   // IntersectionObserver for infinite scroll
   useEffect(() => {
@@ -117,7 +124,9 @@ export default function ConversationsPage() {
     setSelectedSession(sessionId);
     setHistoryLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/conversations/${sessionId}`, {
+      const params = new URLSearchParams();
+      if (siteId) params.set("site", siteId);
+      const res = await fetch(`${API_URL}/api/conversations/${sessionId}?${params}`, {
         credentials: "include",
       });
       if (res.ok) {

@@ -45,6 +45,7 @@ apps/api/           Lambda API (Hono)
     documents.ts    KB document upload (presigned URLs), list, delete, sync — gated on KB_DOCS_BUCKET env var
   src/lib/
     auth.ts         dashboardAuth middleware (API key → Cognito JWT fallback), validateJwt
+    sites.ts        listSites() / getSite(siteId?) — parses SITES_CONFIG JSON; falls back to individual env vars
   src/types.ts      Env type (optional Cognito bindings, KB bindings, authMode variable)
 
 apps/web/           Next.js frontend (static export)
@@ -73,7 +74,7 @@ agent/
   Dockerfile        Python 3.11-slim, opentelemetry, non-root user
   requirements.txt  strands-agents, strands-agents-tools, boto3, bedrock-agentcore
 
-terraform/          Main stack (AgentCore + optional dashboard)
+terraform/          Legacy monolithic stack (AgentCore + optional dashboard) — kept for reference
   main.tf           Provider (aws ~>6.0, archive, null), backend, locals
   agentcore.tf      ECR + CodeBuild + AgentCore Runtime + Memory + Prompt + IAM
   widget.tf         S3 + CloudFront CDN for embeddable widget (CORS)
@@ -88,6 +89,24 @@ terraform/          Main stack (AgentCore + optional dashboard)
   bootstrap/
     main.tf         Optional S3 backend + DynamoDB lock table
 
+terraform/agent/    Per-site agent stack (deploy once per site/tenant)
+  main.tf           Provider, backend (key: agent77/SITE_ID/terraform.tfstate)
+  variables.tf      project_name (unique per site), agentcore vars, oidc vars, enable_knowledge_base
+  outputs.tf        agent_runtime_url, agentcore_memory_id, agent_prompt_id, widget_url, site_config
+  agentcore.tf      ECR + CodeBuild + AgentCore Runtime + Memory + Prompt + IAM (copied from terraform/)
+  widget.tf         S3 + CloudFront CDN for embeddable widget (copied from terraform/)
+  knowledge_base.tf [optional] Bedrock KB (copied from terraform/)
+  buildspec.yml     Docker build spec
+  terraform.tfvars.example  Shows per-site usage
+
+terraform/dashboard/  Single dashboard stack (deploy once, manages all sites)
+  main.tf           Provider, backend (key: agent77/dashboard/terraform.tfstate), locals with IAM ARN helpers
+  variables.tf      sites[] list variable (id, name, prompt_id, memory_id, runtime_url, kb_*), enable_dashboard_ui
+  dashboard.tf      Lambda IAM (computed from sites[]), Lambda with SITES_CONFIG env var, Function URL
+  dashboard_ui.tf   Cognito + S3 + CloudFront (same as legacy)
+  outputs.tf        dashboard_url, dashboard_api_url, cognito outputs
+  terraform.tfvars.example  Shows sites[] list syntax
+
 demo/terraform/     Full dashboard + demo stack
   main.tf           Providers, backend
   cognito.tf        Cognito user pool + client (+ null_resource for callback URLs)
@@ -99,22 +118,26 @@ demo/terraform/     Full dashboard + demo stack
 
 ## Key Terraform Variables
 
-### Main stack (terraform/)
+### Agent stack (terraform/agent/) — deploy once per site
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `project_name` | — | Unique per site, e.g. `acme-storefront` (resource name prefix) |
+| `agentcore_model_id` | `anthropic.claude-sonnet-4-6` | Bedrock model |
+| `agentcore_image_tag` | `latest` | Docker image tag (use unique tags to force re-pull) |
+| `agent_system_prompt` | `"You are a helpful assistant..."` | System prompt via Bedrock Prompt Management |
+| `oidc_discovery_url` | `""` | OIDC discovery URL for AgentCore JWT validation |
+| `oidc_allowed_audience` | `""` | Allowed audience (client ID) for OIDC validation |
+| `enable_knowledge_base` | `false` | Provision Bedrock Knowledge Base with S3 Vectors |
+
+### Dashboard stack (terraform/dashboard/) — deploy once
 
 | Variable | Default | Purpose |
 |---|---|---|
 | `project_name` | `agent77` | Resource name prefix |
-| `agentcore_model_id` | `anthropic.claude-sonnet-4-6` | Bedrock model |
-| `enable_agentcore` | `true` | Provision AgentCore |
-| `agentcore_image_tag` | `latest` | Docker image tag (use unique tags like `deploy-<timestamp>` to force re-pull) |
-| `agent_system_prompt` | `"You are a helpful assistant..."` | System prompt managed via Bedrock Prompt Management |
-| `oidc_discovery_url` | `""` | OIDC discovery URL for AgentCore JWT validation |
-| `oidc_allowed_audience` | `""` | Allowed audience (client ID) for OIDC validation |
-| `enable_dashboard` | `false` | Provision dashboard API (Lambda + Function URL) |
-| `enable_dashboard_ui` | `false` | Provision dashboard UI (Cognito + S3 + CloudFront), requires `enable_dashboard` |
-| `dashboard_api_key` | `""` | API key for `X-API-Key` header auth (sensitive) |
-| `dashboard_domain` | `""` | Custom domain for dashboard CloudFront |
-| `enable_knowledge_base` | `false` | Provision Bedrock Knowledge Base with S3 Vectors for document retrieval |
+| `sites` | `[]` | List of site configs (copy from each agent stack's `terraform output site_config`) |
+| `enable_dashboard_ui` | `false` | Provision Cognito + S3 + CloudFront dashboard UI |
+| `dashboard_api_key` | `""` | API key for `X-API-Key` header auth |
 
 ### Demo stack (demo/terraform/)
 
@@ -122,8 +145,8 @@ demo/terraform/     Full dashboard + demo stack
 |---|---|---|
 | `project_name` | `agent77` | Resource name prefix |
 | `domain` | `""` | Custom domain (optional) |
-| `agentcore_runtime_url` | (required) | AgentCore runtime URL from main stack |
-| `agentcore_memory_id` | (required) | AgentCore Memory ID from main stack |
+| `agentcore_runtime_url` | (required) | AgentCore runtime URL from agent stack |
+| `agentcore_memory_id` | (required) | AgentCore Memory ID from agent stack |
 
 ## Build & Deploy
 
@@ -233,12 +256,13 @@ Optional feature gated on `enable_knowledge_base = true`. Lets users upload docu
 ## Current State
 
 - Infrastructure: fully deployed, working
-- Dashboard: functional (login, live widget demo, snippet generation, conversation history)
-- Dashboard in main stack: optional, API key + Cognito auth, independently toggleable UI
+- Repo restructured: `terraform/agent/` (per-site) + `terraform/dashboard/` (once) split from legacy `terraform/`
+- Dashboard: functional (login, conversations, prompt editing, knowledge base docs, embed snippet)
+- Multi-site: dashboard supports N sites via `SITES_CONFIG` env var + site switcher in sidebar
 - AgentCore: container-based deploy (ECR + CodeBuild), Claude Sonnet 4.6, system prompt via Bedrock Prompt Management
 - Auth: AgentCore validates JWTs via configurable OIDC (`oidc_discovery_url` variable)
 - Memory: conversation persistence across turns via AgentCore Memory
-- Widget: hosted on dedicated CDN (main stack), SSE streaming with markdown rendering, pill input UI
+- Widget: hosted on dedicated CDN, SSE streaming with markdown rendering
 - Knowledge Base: optional, S3 Vectors storage, document upload via dashboard, agent retrieval via `retrieve` tool
 - MCP integration: built but needs end-to-end testing with a real MCP server
 
@@ -247,7 +271,11 @@ Optional feature gated on `enable_knowledge_base = true`. Lets users upload docu
 - Terraform resources use `local.name_prefix` (`var.project_name`) as prefix
 - `count = var.enable_agentcore ? 1 : 0` pattern for optional resources in main stack
 - `count = local.enable_dashboard` / `local.enable_dashboard_ui` for dashboard resources
-- Lambda env vars: `AGENTCORE_RUNTIME_URL` (direct HTTP URL), `AGENTCORE_MEMORY_ID`, `DASHBOARD_API_KEY`, plus optional `KB_DOCS_BUCKET`, `KNOWLEDGE_BASE_ID`, `KB_DATA_SOURCE_ID`
+- Dashboard Lambda env vars: `SITES_CONFIG` (JSON array, new), `DASHBOARD_API_KEY`, plus legacy `AGENTCORE_RUNTIME_URL`, `AGENTCORE_MEMORY_ID`, `KB_DOCS_BUCKET`, `KNOWLEDGE_BASE_ID`, `KB_DATA_SOURCE_ID` (backward compat — single site)
+- `SITES_CONFIG` shape: `[{id, name, prompt_id, memory_id, runtime_url, kb_id, kb_data_source_id, kb_bucket}]` (snake_case matches Terraform)
+- `getSite(siteId?)` in `apps/api/src/lib/sites.ts` resolves the active site; falls back to first site if siteId not found
+- Dashboard pages pass `?site={siteId}` on all API calls; siteId persisted in localStorage (`agent77_site_id`)
+- Site switcher appears in sidebar only when `sites.length > 1`
 - esbuild for all JS bundling (API + snippet), with `--external:@aws-sdk/*` (except `@aws-sdk/client-bedrock-agentcore` which must be bundled — not in Lambda runtime)
 - All API routes under `/api/*`, proxied by CloudFront to Lambda Function URL
 - AgentCore `authorizer_configuration` uses dynamic block — only added when `oidc_discovery_url` is set

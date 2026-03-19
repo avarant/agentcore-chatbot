@@ -3,10 +3,12 @@
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Loader2, Save, CheckCircle2, AlertCircle, Info } from "lucide-react";
+import { useCustomer } from "../customer-context";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
 export default function PromptsPage() {
+  const { siteId } = useCustomer();
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -15,7 +17,9 @@ export default function PromptsPage() {
   const fetchPrompt = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/prompts`, {
+      const params = new URLSearchParams();
+      if (siteId) params.set("site", siteId);
+      const res = await fetch(`${API_URL}/api/prompts?${params}`, {
         credentials: "include",
       });
       if (res.ok) {
@@ -31,13 +35,15 @@ export default function PromptsPage() {
 
   useEffect(() => {
     fetchPrompt();
-  }, [fetchPrompt]);
+  }, [siteId, fetchPrompt]);
 
   async function handleSave() {
     setSaving(true);
     setStatus("idle");
     try {
-      const res = await fetch(`${API_URL}/api/prompts`, {
+      const params = new URLSearchParams();
+      if (siteId) params.set("site", siteId);
+      const res = await fetch(`${API_URL}/api/prompts?${params}`, {
         method: "PUT",
         credentials: "include",
         headers: { "Content-Type": "application/json" },

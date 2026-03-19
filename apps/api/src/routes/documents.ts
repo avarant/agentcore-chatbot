@@ -14,6 +14,7 @@ import {
 } from "@aws-sdk/client-bedrock-agent";
 import type { Env } from "../types";
 import { dashboardAuth } from "../lib/auth";
+import { getSite } from "../lib/sites";
 
 export const documentRoutes = new Hono<Env>();
 
@@ -26,7 +27,7 @@ const bedrockAgent = new BedrockAgentClient({
 
 // List uploaded documents
 documentRoutes.get("/", async (c) => {
-  const bucket = process.env.KB_DOCS_BUCKET;
+  const bucket = getSite(c.req.query("site"))?.kbBucket;
   if (!bucket) {
     return c.json({ error: "Knowledge base not configured" }, 503);
   }
@@ -46,7 +47,7 @@ documentRoutes.get("/", async (c) => {
 
 // Generate presigned URL for upload
 documentRoutes.post("/upload", async (c) => {
-  const bucket = process.env.KB_DOCS_BUCKET;
+  const bucket = getSite(c.req.query("site"))?.kbBucket;
   if (!bucket) {
     return c.json({ error: "Knowledge base not configured" }, 503);
   }
@@ -72,8 +73,9 @@ documentRoutes.post("/upload", async (c) => {
 
 // Trigger knowledge base sync (ingestion job)
 documentRoutes.post("/sync", async (c) => {
-  const knowledgeBaseId = process.env.KNOWLEDGE_BASE_ID;
-  const dataSourceId = process.env.KB_DATA_SOURCE_ID;
+  const siteConfig = getSite(c.req.query("site"));
+  const knowledgeBaseId = siteConfig?.kbId;
+  const dataSourceId = siteConfig?.kbDataSourceId;
 
   if (!knowledgeBaseId || !dataSourceId) {
     return c.json({ error: "Knowledge base not configured" }, 503);
@@ -94,8 +96,9 @@ documentRoutes.post("/sync", async (c) => {
 
 // Check ingestion job status
 documentRoutes.get("/sync-status/:jobId", async (c) => {
-  const knowledgeBaseId = process.env.KNOWLEDGE_BASE_ID;
-  const dataSourceId = process.env.KB_DATA_SOURCE_ID;
+  const siteConfig = getSite(c.req.query("site"));
+  const knowledgeBaseId = siteConfig?.kbId;
+  const dataSourceId = siteConfig?.kbDataSourceId;
 
   if (!knowledgeBaseId || !dataSourceId) {
     return c.json({ error: "Knowledge base not configured" }, 503);
@@ -120,7 +123,7 @@ documentRoutes.get("/sync-status/:jobId", async (c) => {
 
 // Generate presigned URL for viewing/downloading a document
 documentRoutes.get("/view/:key", async (c) => {
-  const bucket = process.env.KB_DOCS_BUCKET;
+  const bucket = getSite(c.req.query("site"))?.kbBucket;
   if (!bucket) {
     return c.json({ error: "Knowledge base not configured" }, 503);
   }
@@ -139,7 +142,7 @@ documentRoutes.get("/view/:key", async (c) => {
 
 // Delete a document
 documentRoutes.delete("/:key", async (c) => {
-  const bucket = process.env.KB_DOCS_BUCKET;
+  const bucket = getSite(c.req.query("site"))?.kbBucket;
   if (!bucket) {
     return c.json({ error: "Knowledge base not configured" }, 503);
   }
