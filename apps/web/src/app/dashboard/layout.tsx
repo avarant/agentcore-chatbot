@@ -13,7 +13,7 @@ const COGNITO_DOMAIN = process.env.NEXT_PUBLIC_COGNITO_DOMAIN || "";
 const CLIENT_ID = process.env.NEXT_PUBLIC_COGNITO_CLIENT_ID || "";
 const REDIRECT_URI = encodeURIComponent(process.env.NEXT_PUBLIC_AUTH_CALLBACK_URL || "");
 const LOGIN_URL = `${COGNITO_DOMAIN}/login?response_type=code&client_id=${CLIENT_ID}&redirect_uri=${REDIRECT_URI}&scope=${encodeURIComponent("openid email profile")}`;
-const SITE_ID_KEY = "agent77_site_id";
+const SITE_ID_KEY = "agentcore_site_id";
 
 const NAV_ITEMS = [
   { href: "/dashboard/conversations", label: "Conversations", icon: MessageSquare },
@@ -109,7 +109,7 @@ export default function DashboardLayout({
         <aside className="fixed inset-y-0 left-0 z-40 flex w-60 flex-col border-r bg-card">
           {/* Brand */}
           <div className="flex items-center gap-2 px-5 py-5">
-            <span className="text-xl font-bold italic tracking-tight bg-gradient-to-r from-violet-500 via-fuchsia-500 to-pink-500 bg-clip-text text-transparent">agent77</span>
+            <span className="text-xl font-bold italic tracking-tight bg-gradient-to-r from-violet-500 via-fuchsia-500 to-pink-500 bg-clip-text text-transparent">agentcore</span>
           </div>
 
           <Separator />

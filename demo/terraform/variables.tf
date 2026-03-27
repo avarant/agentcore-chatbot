@@ -11,7 +11,7 @@ variable "aws_region" {
 variable "project_name" {
   description = "Project name used as a prefix for all resources"
   type        = string
-  default     = "agent77"
+  default     = "agentcore-chatbot"
 }
 
 variable "domain" {

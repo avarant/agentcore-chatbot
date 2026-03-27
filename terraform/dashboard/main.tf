@@ -1,5 +1,5 @@
 ###############################################################################
-# Agent77 — Dashboard stack (deploy once, manages all sites)
+# AgentCore Chatbot — Dashboard stack (deploy once, manages all sites)
 # main.tf — Provider, backend, locals
 ###############################################################################
 
@@ -23,10 +23,10 @@ terraform {
 
   # Remote backend — run `terraform/bootstrap` first, then uncomment:
   # backend "s3" {
-  #   bucket         = "agent77-tfstate-ACCOUNT_ID"
-  #   key            = "agent77/dashboard/terraform.tfstate"
+  #   bucket         = "agentcore-chatbot-tfstate-ACCOUNT_ID"
+  #   key            = "agentcore-chatbot/dashboard/terraform.tfstate"
   #   region         = "us-east-1"
-  #   dynamodb_table = "agent77-tflock"
+  #   dynamodb_table = "agentcore-chatbot-tflock"
   #   encrypt        = true
   # }
 

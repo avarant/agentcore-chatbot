@@ -1,5 +1,5 @@
 ###############################################################################
-# Agent77 — Dashboard stack outputs
+# AgentCore Chatbot — Dashboard stack outputs
 ###############################################################################
 
 output "dashboard_api_url" {

@@ -1,6 +1,6 @@
 # Getting Started
 
-Agent77 is a self-hosted AI chatbot platform on AWS. This guide walks through deploying the full stack from scratch.
+AgentCore Chatbot is a self-hosted AI chatbot platform on AWS. This guide walks through deploying the full stack from scratch.
 
 ## Prerequisites
 

@@ -1,4 +1,4 @@
-# Agent77
+# AgentCore Chatbot
 
 Self-hosted AI chatbot platform on AWS. Lets site owners deploy an AI chat widget that connects to their MCP server, with per-user JWT authentication.
 
@@ -90,7 +90,7 @@ terraform/          Legacy monolithic stack (AgentCore + optional dashboard) —
     main.tf         Optional S3 backend + DynamoDB lock table
 
 terraform/agent/    Per-site agent stack (deploy once per site/tenant)
-  main.tf           Provider, backend (key: agent77/SITE_ID/terraform.tfstate)
+  main.tf           Provider, backend (key: agentcore-chatbot/SITE_ID/terraform.tfstate)
   variables.tf      project_name (unique per site), agentcore vars, oidc vars, enable_knowledge_base
   outputs.tf        agent_runtime_url, agentcore_memory_id, agent_prompt_id, widget_url, site_config
   agentcore.tf      ECR + CodeBuild + AgentCore Runtime + Memory + Prompt + IAM (copied from terraform/)
@@ -100,7 +100,7 @@ terraform/agent/    Per-site agent stack (deploy once per site/tenant)
   terraform.tfvars.example  Shows per-site usage
 
 terraform/dashboard/  Single dashboard stack (deploy once, manages all sites)
-  main.tf           Provider, backend (key: agent77/dashboard/terraform.tfstate), locals with IAM ARN helpers
+  main.tf           Provider, backend (key: agentcore-chatbot/dashboard/terraform.tfstate), locals with IAM ARN helpers
   variables.tf      sites[] list variable (id, name, prompt_id, memory_id, runtime_url, kb_*), enable_dashboard_ui
   dashboard.tf      Lambda IAM (computed from sites[]), Lambda with SITES_CONFIG env var, Function URL
   dashboard_ui.tf   Cognito + S3 + CloudFront (same as legacy)
@@ -134,7 +134,7 @@ demo/terraform/     Full dashboard + demo stack
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `project_name` | `agent77` | Resource name prefix |
+| `project_name` | `agentcore-chatbot` | Resource name prefix |
 | `sites` | `[]` | List of site configs (copy from each agent stack's `terraform output site_config`) |
 | `enable_dashboard_ui` | `false` | Provision Cognito + S3 + CloudFront dashboard UI |
 | `dashboard_api_key` | `""` | API key for `X-API-Key` header auth |
@@ -143,7 +143,7 @@ demo/terraform/     Full dashboard + demo stack
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `project_name` | `agent77` | Resource name prefix |
+| `project_name` | `agentcore-chatbot` | Resource name prefix |
 | `domain` | `""` | Custom domain (optional) |
 | `agentcore_runtime_url` | (required) | AgentCore runtime URL from agent stack |
 | `agentcore_memory_id` | (required) | AgentCore Memory ID from agent stack |
@@ -274,7 +274,7 @@ Optional feature gated on `enable_knowledge_base = true`. Lets users upload docu
 - Dashboard Lambda env vars: `SITES_CONFIG` (JSON array, new), `DASHBOARD_API_KEY`, plus legacy `AGENTCORE_RUNTIME_URL`, `AGENTCORE_MEMORY_ID`, `KB_DOCS_BUCKET`, `KNOWLEDGE_BASE_ID`, `KB_DATA_SOURCE_ID` (backward compat — single site)
 - `SITES_CONFIG` shape: `[{id, name, prompt_id, memory_id, runtime_url, kb_id, kb_data_source_id, kb_bucket}]` (snake_case matches Terraform)
 - `getSite(siteId?)` in `apps/api/src/lib/sites.ts` resolves the active site; falls back to first site if siteId not found
-- Dashboard pages pass `?site={siteId}` on all API calls; siteId persisted in localStorage (`agent77_site_id`)
+- Dashboard pages pass `?site={siteId}` on all API calls; siteId persisted in localStorage (`agentcore_site_id`)
 - Site switcher appears in sidebar only when `sites.length > 1`
 - esbuild for all JS bundling (API + snippet), with `--external:@aws-sdk/*` (except `@aws-sdk/client-bedrock-agentcore` which must be bundled — not in Lambda runtime)
 - All API routes under `/api/*`, proxied by CloudFront to Lambda Function URL

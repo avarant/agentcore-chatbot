@@ -1,5 +1,5 @@
 ###############################################################################
-# Agent77 — Dashboard stack — Cognito + S3 + CloudFront for dashboard UI
+# AgentCore Chatbot — Dashboard stack — Cognito + S3 + CloudFront for dashboard UI
 ###############################################################################
 
 # ---------------------------------------------------------------------------

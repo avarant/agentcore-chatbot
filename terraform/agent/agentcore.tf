@@ -1,5 +1,5 @@
 ###############################################################################
-# Agent77 — agentcore.tf — Container-based deploy via ECR + CodeBuild
+# AgentCore Chatbot — agentcore.tf — Container-based deploy via ECR + CodeBuild
 ###############################################################################
 
 # ---------------------------------------------------------------------------
@@ -179,7 +179,7 @@ resource "aws_codebuild_project" "agent" {
   count = var.enable_agentcore ? 1 : 0
 
   name          = "${local.name_prefix}-agent-build"
-  description   = "Build Agent77 container image and push to ECR"
+  description   = "Build AgentCore Chatbot container image and push to ECR"
   service_role  = aws_iam_role.codebuild[0].arn
   build_timeout = 15
 
@@ -391,7 +391,7 @@ resource "aws_bedrockagentcore_agent_runtime" "main" {
   count = var.enable_agentcore ? 1 : 0
 
   agent_runtime_name = "${replace(local.name_prefix, "-", "_")}_runtime"
-  description        = "Agent77 chatbot runtime"
+  description        = "AgentCore Chatbot runtime"
   role_arn           = aws_iam_role.agentcore_runtime[0].arn
 
   agent_runtime_artifact {
@@ -449,7 +449,7 @@ resource "aws_bedrockagentcore_memory" "main" {
   count = var.enable_agentcore ? 1 : 0
 
   name                 = "${replace(local.name_prefix, "-", "_")}_memory"
-  description          = "Agent77 conversation memory"
+  description          = "AgentCore Chatbot conversation memory"
   event_expiry_duration = 30 # days
 
   tags = {
@@ -483,7 +483,7 @@ resource "aws_bedrockagent_prompt" "system" {
   count = var.enable_agentcore ? 1 : 0
 
   name        = "${replace(local.name_prefix, "-", "_")}_system_prompt"
-  description = "Agent77 system prompt"
+  description = "AgentCore Chatbot system prompt"
 
   default_variant = "default"
 

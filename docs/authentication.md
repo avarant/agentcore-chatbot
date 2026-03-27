@@ -1,6 +1,6 @@
 # Authentication
 
-Agent77 uses JWT-based authentication to secure the chat widget. AgentCore validates tokens against an OIDC provider before processing any request.
+AgentCore Chatbot uses JWT-based authentication to secure the chat widget. AgentCore validates tokens against an OIDC provider before processing any request.
 
 ## How it works
 

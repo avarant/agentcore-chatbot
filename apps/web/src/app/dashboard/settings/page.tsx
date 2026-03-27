@@ -21,7 +21,7 @@ export default function SettingsPage() {
   const [copied, setCopied] = useState(false);
 
   const snippet = RUNTIME_URL && WIDGET_URL
-    ? `<!-- Agent77 Chat Widget -->
+    ? `<!-- AgentCore Chatbot Widget -->
 <script>
 (function() {
   var s = document.createElement('script');

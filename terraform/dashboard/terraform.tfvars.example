@@ -1,5 +1,5 @@
 aws_region   = "us-east-1"
-project_name = "agent77"
+project_name = "agentcore-chatbot"
 environment  = "prod"
 
 enable_dashboard_ui = true

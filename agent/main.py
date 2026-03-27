@@ -109,7 +109,7 @@ async def invoke(payload=None, context=None):
             with AgentCoreMemorySessionManager(config, region_name=REGION) as session_manager:
                 agent = Agent(
                     system_prompt=SYSTEM_PROMPT,
-                    name="Agent77",
+                    name="AgentCore Chatbot",
                     tools=[retrieve] if KNOWLEDGE_BASE_ID else [],
                     session_manager=session_manager,
                     callback_handler=None,
@@ -120,7 +120,7 @@ async def invoke(payload=None, context=None):
         else:
             agent = Agent(
                 system_prompt=SYSTEM_PROMPT,
-                name="Agent77",
+                name="AgentCore Chatbot",
                 tools=[retrieve] if KNOWLEDGE_BASE_ID else [],
                 callback_handler=None,
             )

@@ -1,8 +1,8 @@
-# Agent77
+# AgentCore Chatbot
 
 > Add an AI chatbot to any website, connected to your MCP server. Self-hosted on AWS.
 
-Agent77 lets you deploy an AI chatbot widget on your website that connects to your [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server. End users chat with an AI agent that calls tools on your MCP server, scoped to their permissions via JWT authentication.
+AgentCore Chatbot lets you deploy an AI chatbot widget on your website that connects to your [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server. End users chat with an AI agent that calls tools on your MCP server, scoped to their permissions via JWT authentication.
 
 ## Architecture
 
@@ -32,8 +32,8 @@ Demo Stack (demo/terraform/) — Dashboard for testing
 ## Quick Start
 
 ```bash
-git clone https://github.com/avarant/agent77.git
-cd agent77
+git clone https://github.com/avarant/agentcore-chatbot.git
+cd agentcore-chatbot
 pnpm install
 ```
 

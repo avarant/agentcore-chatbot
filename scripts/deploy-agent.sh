@@ -10,8 +10,8 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 REGION="us-east-1"
-PROJECT_NAME="agent77-agent-build"
-ECR_REPO="agent77-agent"
+PROJECT_NAME="agentcore-chatbot-agent-build"
+ECR_REPO="agentcore-chatbot-agent"
 
 # Allow explicit --tf-dir override
 TF_DIR=""

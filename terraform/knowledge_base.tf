@@ -1,5 +1,5 @@
 ###############################################################################
-# Agent77 — knowledge_base.tf — Bedrock Knowledge Base + S3 Vectors
+# AgentCore Chatbot — knowledge_base.tf — Bedrock Knowledge Base + S3 Vectors
 ###############################################################################
 
 locals {

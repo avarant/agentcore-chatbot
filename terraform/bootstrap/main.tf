@@ -1,5 +1,5 @@
 ###############################################################################
-# Agent77 — bootstrap/main.tf — Create S3 backend + DynamoDB lock table
+# AgentCore Chatbot — bootstrap/main.tf — Create S3 backend + DynamoDB lock table
 #
 # Run this ONCE before the main terraform:
 #   cd terraform/bootstrap
@@ -30,7 +30,7 @@ variable "aws_region" {
 variable "project_name" {
   description = "Project name (must match main terraform)"
   type        = string
-  default     = "agent77"
+  default     = "agentcore-chatbot"
 }
 
 provider "aws" {

@@ -1,5 +1,5 @@
 ###############################################################################
-# Agent77 — outputs.tf (AgentCore-only)
+# AgentCore Chatbot — outputs.tf (AgentCore-only)
 ###############################################################################
 
 output "agent_runtime_id" {

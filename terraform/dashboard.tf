@@ -1,5 +1,5 @@
 ###############################################################################
-# Agent77 — dashboard.tf — Dashboard API (Lambda + Function URL)
+# AgentCore Chatbot — dashboard.tf — Dashboard API (Lambda + Function URL)
 ###############################################################################
 
 locals {

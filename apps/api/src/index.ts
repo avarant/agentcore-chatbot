@@ -33,7 +33,7 @@ app.get("/api/sites", dashboardAuth, (c) => {
   return c.json({ sites });
 });
 
-app.get("/", (c) => c.json({ status: "ok", service: "agent77-api" }));
+app.get("/", (c) => c.json({ status: "ok", service: "agentcore-chatbot-api" }));
 
 export default app;
 export const handler = handle(app);

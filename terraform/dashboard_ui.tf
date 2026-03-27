@@ -1,5 +1,5 @@
 ###############################################################################
-# Agent77 — dashboard_ui.tf — Cognito + S3 + CloudFront for dashboard UI
+# AgentCore Chatbot — dashboard_ui.tf — Cognito + S3 + CloudFront for dashboard UI
 ###############################################################################
 
 locals {

@@ -1,6 +1,6 @@
 # Django Integration
 
-If your site uses Django's built-in authentication (session-based) instead of an OIDC provider, you can integrate with Agent77 by exposing a minimal set of OIDC-compatible endpoints. Django doesn't need to become a full OIDC provider — just enough for AgentCore to verify tokens.
+If your site uses Django's built-in authentication (session-based) instead of an OIDC provider, you can integrate with AgentCore Chatbot by exposing a minimal set of OIDC-compatible endpoints. Django doesn't need to become a full OIDC provider — just enough for AgentCore to verify tokens.
 
 ## Overview
 
@@ -19,24 +19,24 @@ pip install PyJWT cryptography
 Generate an RSA key pair (once):
 
 ```bash
-openssl genrsa -out agent77_private.pem 2048
-openssl rsa -in agent77_private.pem -pubout -out agent77_public.pem
+openssl genrsa -out agentcore_private.pem 2048
+openssl rsa -in agentcore_private.pem -pubout -out agentcore_public.pem
 ```
 
 Store these in Django settings (or read from files/environment):
 
 ```python
 # settings.py
-AGENT77_PRIVATE_KEY = open("agent77_private.pem").read()
-AGENT77_PUBLIC_KEY = open("agent77_public.pem").read()
-AGENT77_ISSUER = "https://yoursite.com"  # must be publicly reachable
-AGENT77_AUDIENCE = "agent77"
+AGENTCORE_PRIVATE_KEY = open("agentcore_private.pem").read()
+AGENTCORE_PUBLIC_KEY = open("agentcore_public.pem").read()
+AGENTCORE_ISSUER = "https://yoursite.com"  # must be publicly reachable
+AGENTCORE_AUDIENCE = "agentcore-chatbot"
 ```
 
 ## Views
 
 ```python
-# agent77/views.py
+# agentcore/views.py
 import json
 import time
 
@@ -50,17 +50,17 @@ from jwt.algorithms import RSAAlgorithm
 def openid_configuration(request):
     """Minimal OpenID Connect discovery document."""
     return JsonResponse({
-        "issuer": settings.AGENT77_ISSUER,
-        "jwks_uri": f"{settings.AGENT77_ISSUER}/.well-known/jwks.json",
+        "issuer": settings.AGENTCORE_ISSUER,
+        "jwks_uri": f"{settings.AGENTCORE_ISSUER}/.well-known/jwks.json",
         "id_token_signing_alg_values_supported": ["RS256"],
     })
 
 
 def jwks(request):
     """JSON Web Key Set — serves the public key for token verification."""
-    public_key = load_pem_public_key(settings.AGENT77_PUBLIC_KEY.encode())
+    public_key = load_pem_public_key(settings.AGENTCORE_PUBLIC_KEY.encode())
     jwk = json.loads(RSAAlgorithm.to_jwk(public_key))
-    jwk["kid"] = "agent77-key-1"
+    jwk["kid"] = "agentcore-key-1"
     jwk["use"] = "sig"
     return JsonResponse({"keys": [jwk]})
 
@@ -74,16 +74,16 @@ def token(request):
     payload = {
         "sub": str(request.user.pk),
         "email": request.user.email,
-        "iss": settings.AGENT77_ISSUER,
-        "aud": settings.AGENT77_AUDIENCE,
+        "iss": settings.AGENTCORE_ISSUER,
+        "aud": settings.AGENTCORE_AUDIENCE,
         "iat": now,
         "exp": now + 3600,
     }
     signed = pyjwt.encode(
         payload,
-        settings.AGENT77_PRIVATE_KEY,
+        settings.AGENTCORE_PRIVATE_KEY,
         algorithm="RS256",
-        headers={"kid": "agent77-key-1"},
+        headers={"kid": "agentcore-key-1"},
     )
     return JsonResponse({"token": signed})
 ```
@@ -91,14 +91,14 @@ def token(request):
 ## URLs
 
 ```python
-# agent77/urls.py (or include in your root urls.py)
+# agentcore/urls.py (or include in your root urls.py)
 from django.urls import path
 from . import views
 
 urlpatterns = [
     path(".well-known/openid-configuration", views.openid_configuration),
     path(".well-known/jwks.json", views.jwks),
-    path("api/agent77/token", views.token),
+    path("api/agentcore/token", views.token),
 ]
 ```
 
@@ -108,7 +108,7 @@ Point AgentCore at your Django site's discovery endpoint:
 
 ```hcl
 oidc_discovery_url  = "https://yoursite.com/.well-known/openid-configuration"
-oidc_allowed_audience = "agent77"
+oidc_allowed_audience = "agentcore-chatbot"
 ```
 
 ## Widget Embed
@@ -117,9 +117,9 @@ Add the widget to your Django template:
 
 ```html
 <script
-  src="{{ AGENT77_WIDGET_URL }}"
-  data-runtime-url="{{ AGENT77_RUNTIME_URL }}"
-  data-token-url="/api/agent77/token"
+  src="{{ AGENTCORE_WIDGET_URL }}"
+  data-runtime-url="{{ AGENTCORE_RUNTIME_URL }}"
+  data-token-url="/api/agentcore/token"
   async>
 </script>
 ```
@@ -131,7 +131,7 @@ The `data-token-url` is a relative path — the widget will call it on the same 
 ```
 User (logged into Django)
   → Widget loads on page
-  → Widget fetches /api/agent77/token (Django session cookie sent)
+  → Widget fetches /api/agentcore/token (Django session cookie sent)
   → Django verifies session, returns signed JWT
   → Widget sends JWT to AgentCore
   → AgentCore fetches /.well-known/openid-configuration from your site

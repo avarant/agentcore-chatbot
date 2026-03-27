@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Agent77 - Add AI to any website",
+  title: "AgentCore Chatbot - Add AI to any website",
   description: "Drop-in AI agent for any website",
 };
 

@@ -1,5 +1,5 @@
 {
-  "name": "agent77-demo-api",
+  "name": "@agentcore-chatbot/demo-api",
   "version": "1.0.0",
   "private": true,
   "type": "module",

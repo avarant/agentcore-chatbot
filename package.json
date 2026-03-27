@@ -1,5 +1,5 @@
 {
-  "name": "agent77",
+  "name": "agentcore-chatbot",
   "private": true,
   "scripts": {
     "dev": "pnpm -r --parallel dev",
