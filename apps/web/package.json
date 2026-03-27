@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "deploy": "next build && aws s3 sync out s3://agent77-frontend-724919990906 --delete && aws cloudfront create-invalidation --distribution-id E15C10JAN5SAPW --paths '/*'"
+    "deploy": "echo 'Use scripts/deploy-dashboard.sh --frontend instead'"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",
