@@ -75,6 +75,10 @@ docs/                     Setup and usage guides
 5. The agent processes the message via Claude, calling tools on your MCP server
 6. The response streams back to the widget
 
+## Insights
+
+The dashboard includes a weekly **Insights** view that uses Claude to analyze your chatbot conversations and surface the **recurring questions**, **friction themes**, and **top topics** your end users hit. A scheduled (EventBridge) job regenerates the report each week and caches it in DynamoDB, so the analysis never runs on the request path. It ships with the dashboard stack — see the `insights_model_id` variable in `terraform/dashboard/`.
+
 ## License
 
 MIT

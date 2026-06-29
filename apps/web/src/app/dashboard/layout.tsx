@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { CustomerContext, type User, type Site } from "./customer-context";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Settings, MessageSquare, LogOut, BookOpen, Database, ChevronDown } from "lucide-react";
+import { Settings, MessageSquare, LogOut, BookOpen, Database, ChevronDown, Sparkles } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 const COGNITO_DOMAIN = process.env.NEXT_PUBLIC_COGNITO_DOMAIN || "";
@@ -17,6 +17,7 @@ const SITE_ID_KEY = "agentcore_site_id";
 
 const NAV_ITEMS = [
   { href: "/dashboard/conversations", label: "Conversations", icon: MessageSquare },
+  { href: "/dashboard/insights", label: "Insights", icon: Sparkles },
   { href: "/dashboard/prompt", label: "Prompt", icon: BookOpen },
   { href: "/dashboard/knowledge-base", label: "Knowledge Base", icon: Database },
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
