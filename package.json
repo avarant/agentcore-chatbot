@@ -7,11 +7,29 @@
     "lint": "pnpm -r lint"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["esbuild", "sharp"]
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "sharp"
+    ],
+    "overrides": {
+      "esbuild@>=0.24.0 <0.25.0": "^0.25.0",
+      "express-rate-limit@>=8.2.0 <8.2.2": "^8.2.2",
+      "fast-uri@<3.1.2": "^3.1.2",
+      "fast-xml-builder@<1.1.7": "^1.1.7",
+      "fast-xml-parser@>=5.0.0 <5.7.0": "^5.7.0",
+      "ip-address@<10.1.1": "^10.1.1",
+      "qs@>=6.11.1 <6.15.2": "^6.15.2",
+      "path-to-regexp@>=8.0.0 <8.4.0": "^8.4.0",
+      "postcss@<8.5.10": "^8.5.10",
+      "picomatch@<2.3.2": "^2.3.2",
+      "picomatch@>=4.0.0 <4.0.4": "^4.0.4",
+      "brace-expansion@>=5.0.0 <5.0.6": "^5.0.6",
+      "js-yaml@>=4.0.0 <4.2.0": "^4.2.0"
+    }
   },
   "devDependencies": {
-    "@types/node": "^22.13.0",
-    "eslint": "^9.20.0",
-    "typescript": "^5.7.0"
+    "@types/node": "^22.20.0",
+    "eslint": "^9.39.4",
+    "typescript": "^5.9.3"
   }
 }
