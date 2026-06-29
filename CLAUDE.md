@@ -253,6 +253,27 @@ Optional feature gated on `enable_knowledge_base = true`. Lets users upload docu
 - Document list with size, date, delete
 - Auto-sync after upload with status indicator
 
+## Insights (Conversation Analysis)
+
+Weekly LLM analysis of a site's conversations, surfacing **recurring questions**, **friction themes**, and **top topics** in the dashboard. Read-only and zero-config beyond the table — generated on a schedule, never on the request path.
+
+**Flow:** EventBridge weekly cron → dashboard Lambda (`generate_insights_all_sites`) → for each site, page AgentCore Memory (actors → sessions → summaries + first user messages) → Bedrock Converse with a forced `record_insights` tool → cache payload in DynamoDB (30-day TTL) → dashboard reads the cache.
+
+**Backend** (`apps/api/src/routes/insights.ts`):
+- `GET /api/insights?site={id}` — return the cached payload for a site (404 until the first run, 503 if `INSIGHTS_TABLE` unset)
+- `generateInsightsAllSites()` / `runInsightsForSite(siteId)` — exported for the Lambda handler's EventBridge dispatch in `index.ts`
+- Session collection helpers (`listAllActors` / `listAllSessions`) live in `apps/api/src/lib/agentcore.ts` (page through and sort client-side — AgentCore orders sessions by UUID, not recency)
+
+**Lambda dispatch** (`apps/api/src/index.ts`): the handler inspects the event — `{action: "generate_insights_all_sites"}` (EventBridge) or `{action: "generate_insights_site", siteId}` (manual `aws lambda invoke`) run insights; anything else falls through to the Hono HTTP handler.
+
+**Dashboard UI** (`apps/web/src/app/dashboard/insights/page.tsx`): cards for recurring questions / friction themes / top topics; session-id pills deep-link to the conversation viewer.
+
+**Infrastructure** (`terraform/dashboard/dashboard.tf`):
+- `${name_prefix}-insights` DynamoDB table (hash `siteId`, range `version`, TTL on `ttl`)
+- IAM: `dynamodb:GetItem/PutItem` on the table + `bedrock:InvokeModel`; AgentCore Memory read is already granted by `dashboard_lambda_memory`
+- EventBridge rule `cron(0 7 ? * MON *)` → Lambda (async, `maximum_retry_attempts = 0` so a timeout never re-generates completed sites)
+- Lambda `timeout = 600`, `memory_size = 1024` for the batch run; env `INSIGHTS_TABLE`, `BEDROCK_MODEL_ID` (`var.insights_model_id`, default `global.anthropic.claude-sonnet-4-6`)
+
 ## Current State
 
 - Infrastructure: fully deployed, working
@@ -264,6 +285,7 @@ Optional feature gated on `enable_knowledge_base = true`. Lets users upload docu
 - Memory: conversation persistence across turns via AgentCore Memory
 - Widget: hosted on dedicated CDN, SSE streaming with markdown rendering
 - Knowledge Base: optional, S3 Vectors storage, document upload via dashboard, agent retrieval via `retrieve` tool
+- Insights: weekly Bedrock analysis of conversations (recurring questions / friction / topics), cached in DynamoDB, EventBridge-scheduled
 - MCP integration: built but needs end-to-end testing with a real MCP server
 
 ## Conventions
