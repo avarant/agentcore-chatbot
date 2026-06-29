@@ -33,11 +33,11 @@ variable "environment" {
 variable "sites" {
   description = "List of agent site configurations. Each entry maps to a deployed agent stack."
   type = list(object({
-    id                = string            # unique slug, e.g. "acme-storefront"
-    name              = string            # display name in dashboard UI
-    prompt_id         = string            # Bedrock Prompt ID
-    memory_id         = string            # AgentCore Memory ID
-    runtime_url       = string            # AgentCore Runtime invoke URL
+    id                = string # unique slug, e.g. "acme-storefront"
+    name              = string # display name in dashboard UI
+    prompt_id         = string # Bedrock Prompt ID
+    memory_id         = string # AgentCore Memory ID
+    runtime_url       = string # AgentCore Runtime invoke URL
     kb_id             = optional(string, "")
     kb_data_source_id = optional(string, "")
     kb_bucket         = optional(string, "")
@@ -66,4 +66,14 @@ variable "dashboard_domain" {
   description = "Custom domain for the dashboard CloudFront distribution (optional)"
   type        = string
   default     = ""
+}
+
+# ---------------------------------------------------------------------------
+# Insights (weekly conversation analysis)
+# ---------------------------------------------------------------------------
+
+variable "insights_model_id" {
+  description = "Bedrock model or inference profile ID used to generate the weekly insights report. Sonnet 4.6 requires an inference profile (use the global.* cross-region profile unless a specific region is required)."
+  type        = string
+  default     = "global.anthropic.claude-sonnet-4-6"
 }
